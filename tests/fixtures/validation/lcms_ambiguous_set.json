@@ -1,0 +1,27 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "LC-MS feature cases that should abstain when mass or formula cannot identify an isomer.",
+  "cases": [
+    {
+      "case_id": "hexose_mass_only",
+      "input": {"formula": "C6H12O6", "mz": 181.070664466812, "adduct": "[M+H]+", "ppm_tolerance": 5},
+      "expected": {"status": "ambiguous", "reason": "multiple C6H12O6 isomers share the feature"}
+    },
+    {
+      "case_id": "neutral_mass_without_identifier",
+      "input": {"mz": 181.070664466812, "adduct": "[M+H]+", "ppm_tolerance": 10},
+      "expected": {"status": "ambiguous_or_unmatched", "reason": "mass-only query is not sufficient for a confident ID"}
+    },
+    {
+      "case_id": "glutamate_formula_mass_only",
+      "input": {"formula": "C5H9NO4", "mz": 148.060434, "adduct": "[M+H]+", "ppm_tolerance": 5},
+      "expected": {"status": "ambiguous", "reason": "formula and mass alone cannot distinguish isomers or related adduct candidates"}
+    },
+    {
+      "case_id": "serine_formula_mass_only",
+      "input": {"formula": "C3H7NO3", "mz": 106.049869, "adduct": "[M+H]+", "ppm_tolerance": 5},
+      "expected": {"status": "ambiguous", "reason": "formula and mass alone cannot determine stereochemistry"}
+    }
+  ]
+}

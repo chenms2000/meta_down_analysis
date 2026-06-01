@@ -1,0 +1,490 @@
+{
+  "schema_version": "literature_semantics_benchmark.v1",
+  "purpose": "Release-level stress cases for converting complex biomedical sentences into structured assertion semantics.",
+  "minimum_status_accuracy": 1.0,
+  "minimum_cue_recall": 0.95,
+  "minimum_method_cue_recall": 0.90,
+  "minimum_case_count": 63,
+  "minimum_generated_case_count": 27,
+  "required_generated_groups": [
+    "null_result_negation_variants",
+    "direct_assay_concession_variants",
+    "alternative_explanation_variants",
+    "context_boundary_variants",
+    "background_variants",
+    "hedged_or_weak_variants",
+    "conflict_variants",
+    "attribution_exclusion_variants",
+    "flux_abundance_discordance_variants",
+    "conditional_rescue_variants",
+    "causal_insufficiency_variants"
+  ],
+  "required_support_statuses": ["support", "contradict", "uncertain", "background"],
+  "required_semantic_cues": [
+    "background",
+    "alternative_explanation",
+    "causal_weakening",
+    "comparison_context",
+    "concession",
+    "conflict",
+    "context_boundary",
+    "direct_assay",
+    "hedged_negation",
+    "negation",
+    "non_negating_negation",
+    "null_result",
+    "uncertainty",
+    "weak_observation"
+  ],
+  "required_method_cues": [
+    "animal_model",
+    "cell_line_model",
+    "intervention_assay",
+    "measurement_assay",
+    "patient_sample"
+  ],
+  "generated_case_groups": [
+    {
+      "group_id": "null_result_negation_variants",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation"],
+      "expected_method_cues": ["patient_sample"],
+      "texts": [
+        "Lactate showed no significant difference between tumor and adjacent tissue.",
+        "Glucose did not increase relative to matched normal samples.",
+        "Serine was not significantly elevated in clinical cohorts."
+      ]
+    },
+    {
+      "group_id": "direct_assay_concession_variants",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["concession", "comparison_context", "direct_assay"],
+      "expected_method_cues": ["patient_sample", "measurement_assay"],
+      "texts": [
+        "Although variable across samples, lactate was quantified by LC-MS and increased versus matched normal tissue.",
+        "While some tumors differed, glutamine was measured by LC-MS and increased compared with adjacent tissue."
+      ]
+    },
+    {
+      "group_id": "alternative_explanation_variants",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["alternative_explanation", "causal_weakening"],
+      "expected_method_cues": [],
+      "texts": [
+        "Serine synthesis tracked proliferation rather than oncogenic dependency.",
+        "Nucleotide abundance was explained by proliferation fraction instead of one-carbon flux.",
+        "The association was secondary to hypoxia rather than glutamine uptake."
+      ]
+    },
+    {
+      "group_id": "context_boundary_variants",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary"],
+      "expected_method_cues": ["patient_sample"],
+      "texts": [
+        {
+          "text": "LDHA inhibition reduced lactate only in cell lines but not patient tumors.",
+          "expected_cues": ["context_boundary", "concession", "negation"],
+          "expected_method_cues": ["cell_line_model", "intervention_assay", "patient_sample"]
+        },
+        "The glutamine effect was restricted to xenografts and absent in clinical samples."
+      ]
+    },
+    {
+      "group_id": "background_variants",
+      "section": "review",
+      "expected_support_status": "background",
+      "expected_cues": ["background"],
+      "expected_method_cues": [],
+      "texts": [
+        "This review summarizes prior studies showing lactate is a canonical cancer hallmark.",
+        "Previous studies have reported glutamine metabolism in cancer."
+      ]
+    },
+    {
+      "group_id": "hedged_or_weak_variants",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["negation"],
+      "expected_method_cues": [],
+      "texts": [
+        {
+          "text": "Lactate was not consistently higher across cohorts.",
+          "expected_cues": ["hedged_negation", "negation"],
+          "expected_method_cues": ["patient_sample"]
+        },
+        {
+          "text": "Glutathione appeared to trend toward increased levels but was not statistically significant.",
+          "expected_cues": ["concession", "negation", "weak_observation"]
+        }
+      ]
+    },
+    {
+      "group_id": "conflict_variants",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["conflict"],
+      "expected_method_cues": ["patient_sample"],
+      "texts": [
+        "Conflicting cohorts reported mixed results for fatty acid oxidation in melanoma."
+      ]
+    },
+    {
+      "group_id": "attribution_exclusion_variants",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["alternative_explanation", "causal_weakening", "negation"],
+      "expected_method_cues": [],
+      "texts": [
+        "The survival association was not attributable to lactate after adjustment for hypoxia.",
+        "The lactate signal was not explained by glycolytic flux after controlling for necrosis.",
+        {
+          "text": "Glutamine abundance was confounded by tumor purity rather than uptake.",
+          "expected_cues": ["alternative_explanation", "causal_weakening"]
+        }
+      ]
+    },
+    {
+      "group_id": "flux_abundance_discordance_variants",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["concession", "direct_assay", "negation", "null_result"],
+      "expected_method_cues": ["measurement_assay"],
+      "texts": [
+        "Despite increased lactate, isotope tracing did not demonstrate increased glycolytic flux.",
+        "Although serine abundance rose, tracing failed to confirm increased one-carbon flux.",
+        "While glutamine levels were high, isotope labeling did not show increased glutamine anaplerosis."
+      ]
+    },
+    {
+      "group_id": "conditional_rescue_variants",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary"],
+      "expected_method_cues": ["intervention_assay"],
+      "texts": [
+        {
+          "text": "Glutamine depletion reduced growth unless cells were supplied with alpha-ketoglutarate.",
+          "expected_method_cues": ["cell_line_model", "intervention_assay"]
+        },
+        "LDHA inhibition suppressed lactate only when pyruvate transport was intact.",
+        {
+          "text": "Serine withdrawal impaired nucleotide synthesis except in tumors with folate rescue.",
+          "expected_method_cues": []
+        }
+      ]
+    },
+    {
+      "group_id": "causal_insufficiency_variants",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["causal_weakening", "negation"],
+      "expected_method_cues": [],
+      "texts": [
+        {
+          "text": "Serine abundance increased, but this was insufficient to drive nucleotide synthesis without folate availability.",
+          "expected_cues": ["causal_weakening", "concession", "negation"]
+        },
+        {
+          "text": "Glutamine uptake was necessary but not sufficient to explain TCA labeling.",
+          "expected_cues": ["causal_weakening", "concession", "negation"]
+        },
+        "Lactate accumulation alone was not sufficient to account for immune suppression."
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "direct_support_patient_lcms",
+      "text": "Patient tumor tissue lactate was quantified by LC-MS and was elevated compared with adjacent normal tissue.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["comparison_context", "direct_assay"],
+      "expected_method_cues": ["patient_sample", "measurement_assay"]
+    },
+    {
+      "case_id": "review_background",
+      "text": "This review summarizes previous studies of lactate metabolism in cancer.",
+      "section": "abstract",
+      "expected_support_status": "background",
+      "expected_cues": ["background"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "introduction_prior_studies_background",
+      "text": "Previous studies have implicated glutamine metabolism in cancer progression.",
+      "section": "introduction",
+      "expected_support_status": "background",
+      "expected_cues": ["background"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "may_association_uncertain",
+      "text": "Lactate may be associated with hepatocellular carcinoma.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["uncertainty"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "concession_without_assay_uncertain",
+      "text": "Although lactate is associated with cancer, causality remains to be determined.",
+      "section": "abstract",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["concession", "causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "direct_assay_causal_weakening_uncertain",
+      "text": "Although lactate was measured by LC-MS in tumors, causality remains to be determined.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["concession", "causal_weakening", "direct_assay"],
+      "expected_method_cues": ["measurement_assay"]
+    },
+    {
+      "case_id": "plain_negation_contradict",
+      "text": "Lactate was not associated with hepatocellular carcinoma.",
+      "section": "abstract",
+      "expected_support_status": "contradict",
+      "expected_cues": ["negation"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "null_result_contradict",
+      "text": "Lactate showed no significant difference between tumor and adjacent tissue.",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation", "comparison_context"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "failed_to_show_contradict",
+      "text": "The cohort failed to show an association between glutamine and tumor progression.",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "weak_observation_uncertain",
+      "text": "Glutathione trended toward lower levels in tumors, but the change was not statistically significant.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["weak_observation", "concession"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "hedged_negation_uncertain",
+      "text": "LDHA expression was not necessarily associated with lactate accumulation in all tumors.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["hedged_negation"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "not_only_support",
+      "text": "Glucose was not only increased but also quantified by LC-MS in tumor tissue.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["non_negating_negation", "direct_assay"],
+      "expected_method_cues": ["patient_sample", "measurement_assay"]
+    },
+    {
+      "case_id": "cell_line_intervention_support",
+      "text": "LDHA knockdown reduced lactate production in melanoma cell lines.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["direct_assay"],
+      "expected_method_cues": ["cell_line_model", "intervention_assay"]
+    },
+    {
+      "case_id": "animal_model_support",
+      "text": "In xenograft mice, glutamine deprivation reduced tumor growth.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": [],
+      "expected_method_cues": ["animal_model"]
+    },
+    {
+      "case_id": "independent_of_uncertain",
+      "text": "The association between serine abundance and proliferation was independent of MYC expression.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "correlation_not_causality_uncertain",
+      "text": "Glutamine correlated with tumor burden, but correlation does not imply causality.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["concession", "causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "reported_prior_work_background",
+      "text": "Lactate has been reported to accumulate in tumors in previous studies.",
+      "section": "introduction",
+      "expected_support_status": "background",
+      "expected_cues": ["background"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "canonical_hallmark_background",
+      "text": "Aerobic glycolysis is a canonical hallmark of cancer metabolism.",
+      "section": "review",
+      "expected_support_status": "background",
+      "expected_cues": ["background"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "conflicting_reports_uncertain",
+      "text": "Reports of glutamine dependence in melanoma are conflicting across cohorts.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["conflict"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "cell_line_but_not_patient_context_boundary",
+      "text": "LDHA increased lactate only in cell lines but not patient tumors.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary"],
+      "expected_method_cues": ["cell_line_model", "patient_sample"]
+    },
+    {
+      "case_id": "in_vitro_not_in_vivo_context_boundary",
+      "text": "Glutamine deprivation reduced proliferation in vitro but not in vivo.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary"],
+      "expected_method_cues": ["cell_line_model", "animal_model"]
+    },
+    {
+      "case_id": "adjusted_association_uncertain",
+      "text": "The association between serine abundance and survival was no longer significant after adjustment for proliferation.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "cannot_exclude_uncertain",
+      "text": "We cannot exclude that hypoxia rather than lactate explains the observed association.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["uncertainty"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "no_effect_contradict",
+      "text": "Glutamine depletion had no detectable effect on tumor growth.",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation"],
+      "expected_method_cues": ["intervention_assay"]
+    },
+    {
+      "case_id": "not_significantly_higher_contradict",
+      "text": "Lactate was not significantly higher in tumors than adjacent tissue.",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation", "comparison_context"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "single_cell_patient_support",
+      "text": "Single-cell profiling of patient tumors detected elevated oxidative phosphorylation signatures.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["direct_assay"],
+      "expected_method_cues": ["patient_sample", "measurement_assay"]
+    },
+    {
+      "case_id": "spatial_metabolomics_support",
+      "text": "Spatial metabolomics quantified lactate gradients in tumor regions compared with matched normal tissue.",
+      "section": "results",
+      "expected_support_status": "support",
+      "expected_cues": ["comparison_context", "direct_assay"],
+      "expected_method_cues": ["patient_sample", "measurement_assay"]
+    },
+    {
+      "case_id": "subtype_specific_context_boundary",
+      "text": "The lactate association was subtype-specific and was not observed in clinical cohorts lacking MYC activation.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary", "negation"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "alternative_explanation_rather_than_uncertain",
+      "text": "Hypoxia rather than lactate explained the observed survival association.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["alternative_explanation", "causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "secondary_to_necrosis_alternative_uncertain",
+      "text": "The lactate signal was secondary to necrosis rather than tumor metabolism.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["alternative_explanation", "causal_weakening"],
+      "expected_method_cues": []
+    },
+    {
+      "case_id": "unless_condition_context_boundary",
+      "text": "Glutamine depletion reduced growth only when MYC was amplified, and not in MYC-low tumors.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary", "negation"],
+      "expected_method_cues": ["intervention_assay"]
+    },
+    {
+      "case_id": "except_in_low_purity_context_boundary",
+      "text": "The lactate association was observed except in samples with low tumor purity.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "failed_to_rescue_intervention_contradict",
+      "text": "Adding lactate failed to rescue proliferation after LDHA inhibition.",
+      "section": "results",
+      "expected_support_status": "contradict",
+      "expected_cues": ["null_result", "negation"],
+      "expected_method_cues": ["intervention_assay"]
+    },
+    {
+      "case_id": "cell_line_effect_absent_patient_boundary",
+      "text": "LDHA inhibition reduced lactate in cell lines; however, this effect was absent in patient tumors.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["context_boundary", "concession"],
+      "expected_method_cues": ["cell_line_model", "patient_sample", "intervention_assay"]
+    },
+    {
+      "case_id": "not_consistently_differ_hedged_uncertain",
+      "text": "Lactate levels were variable and did not consistently differ across cohorts.",
+      "section": "results",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["hedged_negation", "negation"],
+      "expected_method_cues": ["patient_sample"]
+    },
+    {
+      "case_id": "necessary_but_not_sufficient_uncertain",
+      "text": "Serine availability was necessary but not sufficient to drive nucleotide synthesis in tumors.",
+      "section": "discussion",
+      "expected_support_status": "uncertain",
+      "expected_cues": ["causal_weakening", "negation"],
+      "expected_method_cues": []
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": "gold_standard_quality_requirements.v1",
+  "purpose": "Minimum quality and maturity gates for release-level gold standard conclusions. These thresholds are seed-to-benchmark gates, not claims of exhaustive biology.",
+  "minimum_positive_conclusions": 25,
+  "minimum_negative_controls": 10,
+  "minimum_context_specific_positive_conclusions": 13,
+  "maximum_pan_cancer_positive_fraction": 0.5,
+  "minimum_unique_positive_cancer_contexts": 7,
+  "minimum_unique_positive_mechanism_axes": 9,
+  "minimum_unique_positive_source_refs": 18,
+  "minimum_positive_controls_per_required_theme": 2,
+  "required_positive_fields": [
+    "gold_id",
+    "cancer_type",
+    "mechanism_axis",
+    "expected_entities",
+    "expected_direction",
+    "required_evidence_type",
+    "source_refs"
+  ],
+  "required_negative_fields": [
+    "gold_id",
+    "mechanism_axis",
+    "negative_trap_terms",
+    "source_refs"
+  ],
+  "allowed_source_ref_prefixes": ["PMID:", "PMCID:", "DOI:", "internal:"],
+  "minimum_source_refs_per_positive": 1,
+  "minimum_expected_entities_per_positive": 2,
+  "required_positive_theme_terms": [
+    {"theme_id": "glycolysis_lactate", "terms": ["glycolysis", "lactate"]},
+    {"theme_id": "tca_cycle", "terms": ["tca", "tricarboxylic"]},
+    {"theme_id": "glutamine", "terms": ["glutamine", "glutamate"]},
+    {"theme_id": "serine_one_carbon", "terms": ["serine", "one-carbon", "one carbon"]},
+    {"theme_id": "fatty_acid_lipid", "terms": ["fatty acid", "lipid"]},
+    {"theme_id": "bile_acid", "terms": ["bile acid"]},
+    {"theme_id": "redox_glutathione", "terms": ["redox", "glutathione"]},
+    {"theme_id": "nucleotide", "terms": ["nucleotide", "purine", "pyrimidine"]},
+    {"theme_id": "sphingolipid_lipid_class", "terms": ["sphingolipid", "ceramide", "sphingomyelin"]},
+    {"theme_id": "amino_acid", "terms": ["amino acid"]},
+    {"theme_id": "arachidonate", "terms": ["arachidonate", "arachidonic acid"]}
+  ],
+  "negative_trap_categories": [
+    {"category_id": "literature_background", "terms": ["review", "background"]},
+    {"category_id": "literature_uncertainty", "terms": ["uncertain", "may", "might", "possible"]},
+    {"category_id": "literature_null_result", "terms": ["no significant", "null result", "not associated"]},
+    {"category_id": "ratio_trait", "terms": ["ratio", "component abundance"]},
+    {"category_id": "class_or_pool_identity", "terms": ["class", "pool", "lipid class", "exact identity"]},
+    {"category_id": "mass_only_identity", "terms": ["mass-only", "mz", "lc-ms feature"]},
+    {"category_id": "context_mismatch", "terms": ["taste", "context", "generic disease", "pan-cancer"]},
+    {"category_id": "graph_overpropagation", "terms": ["graph propagation", "generic disease", "pan-cancer"]},
+    {"category_id": "causal_overclaim", "terms": ["essential", "required", "causality", "driver"]}
+  ]
+}

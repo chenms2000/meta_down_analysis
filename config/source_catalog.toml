@@ -1,0 +1,670 @@
+catalog_version = "0.1"
+description = "Metabolism-oncology raw source catalog. Open-core sources are default candidates; licensed/controlled sources require explicit acceptance."
+
+[[sources]]
+id = "chebi"
+name = "ChEBI"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.ebi.ac.uk/chebi/downloads/"
+license_policy = "Open core. Keep source release and license metadata; review redistribution wording before public mirrors."
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/ontology/chebi.owl"
+path = "ontology/chebi.owl"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/ontology/chebi.obo"
+path = "ontology/chebi.obo"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/SDF/"
+include_regex = 'chebi(_3_stars|_lite|_lite_3_stars)?\.sdf\.gz$'
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/chebi/flat_files/"
+include_regex = '(compounds|names|chemical_data|database_accession|relation|structures)\.(tsv|csv)\.gz$'
+
+[[sources]]
+id = "pubchem_compound_extras"
+name = "PubChem Compound Extras"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://pubchem.ncbi.nlm.nih.gov/docs/downloads"
+license_policy = "Open core with contributor provenance. Check original source licensing for downstream redistribution."
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/README-Extras"
+path = "README-Extras"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-Synonym-filtered.gz"
+path = "CID-Synonym-filtered.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-InChI-Key.gz"
+path = "CID-InChI-Key.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz"
+path = "CID-SMILES.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-Title.gz"
+path = "CID-Title.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-Mass.gz"
+path = "CID-Mass.gz"
+
+[[sources]]
+id = "pubchem_compound_sdf_full"
+name = "PubChem Compound SDF Full Dump"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://pubchem.ncbi.nlm.nih.gov/docs/downloads"
+license_policy = "Very large open-core dump. Prefer Compound Extras for MVP identifiers unless full structures are required."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/SDF/"
+include_regex = '\.sdf\.gz$|\.md5$'
+recursive = false
+
+[[sources]]
+id = "bridgedb_metabolites"
+name = "BridgeDb Metabolite Mappings"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.bridgedb.org/mapping-databases/metabolite-mappings.html"
+license_policy = "CC0 mapping database, but keep upstream source versions in manifest."
+
+[[sources.files]]
+kind = "index"
+url = "https://www.bridgedb.org/mapping-databases/metabolite-mappings.html"
+include_regex = 'metabolites_[0-9]+\.bridge|QC_report'
+filename_from_text = true
+
+[[sources]]
+id = "lipidmaps"
+name = "LIPID MAPS LMSD"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.lipidmaps.org/databases/lmsd/download"
+license_policy = "Open core. LMSD SDF/RDF is CC BY 4.0; ID/structure TSV is CC0 per download page."
+
+[[sources.files]]
+kind = "index"
+url = "https://www.lipidmaps.org/databases/lmsd/download"
+include_regex = 'LMSD .*20[0-9]{2}.*\((ZIP|TTL)\)|LIPID MAPS .*20[0-9]{2}'
+filename_from_text = true
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMFA/all/download"
+path = "rest/LMFA.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMGL/all/download"
+path = "rest/LMGL.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMGP/all/download"
+path = "rest/LMGP.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMSP/all/download"
+path = "rest/LMSP.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMST/all/download"
+path = "rest/LMST.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMPR/all/download"
+path = "rest/LMPR.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMSL/all/download"
+path = "rest/LMSL.tsv"
+
+[[sources.files]]
+kind = "url"
+url = "https://www.lipidmaps.org/rest/compound/lm_id/LMPK/all/download"
+path = "rest/LMPK.tsv"
+
+[[sources]]
+id = "massbank"
+name = "MassBank Spectral Library"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://massbank.eu/MassBank/"
+license_policy = "Open spectral library. Preserve record-level accession, contributor, license, instrument, collision energy, and download checksum before derived MS2 matching."
+
+[[sources.files]]
+kind = "url"
+url = "https://github.com/MassBank/MassBank-data/archive/refs/heads/main.zip"
+path = "MassBank-data-main.zip"
+
+[[sources]]
+id = "gnps_spectral_libraries"
+name = "GNPS Public Spectral Libraries"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://gnps.ucsd.edu/ProteoSAFe/libraries.jsp"
+license_policy = "Open/community spectral libraries with per-library metadata. Import as evidence for compound disambiguation, not canonical identity."
+
+[[sources.files]]
+kind = "manual"
+note = "Download selected GNPS/GNPS2 libraries as MGF/MSP/JSON after selecting instrument/ion-mode scope, then convert or place them under manual_sources/compound_features/<release_id>/ for RT/MS2 index materialization."
+
+[[sources]]
+id = "metabolomics_workbench_refmet"
+name = "Metabolomics Workbench RefMet and REST"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://www.metabolomicsworkbench.org/tools/mw_rest.php"
+license_policy = "Use REST/API with attribution. Store query URL, API version, study/metabolite accession, and response checksum."
+
+[[sources.files]]
+kind = "manual"
+note = "Use the Metabolomics Workbench REST API to fetch RefMet nomenclature, metabolite structures, study metadata, and experimental results relevant to the analysis scope."
+
+[[sources]]
+id = "metabolights_public"
+name = "MetaboLights Public Studies"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://www.ebi.ac.uk/metabolights/download"
+license_policy = "Public metabolomics studies with per-study metadata and files. Preserve study accession, file-level checksums, and reuse terms."
+
+[[sources.files]]
+kind = "manual"
+note = "Snapshot only selected cancer/metabolism studies through the MetaboLights API or FTP; avoid blind bulk import until study filters and license metadata are recorded."
+
+[[sources]]
+id = "reactome"
+name = "Reactome Current Download"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://reactome.org/download-data"
+license_policy = "Open data under Reactome license/Creative Commons terms; preserve release folder and citation."
+
+[[sources.files]]
+kind = "index"
+url = "https://reactome.org/download/current/"
+include_regex = '(ChEBI2Reactome|Ensembl2Reactome|NCBI2Reactome|ReactionPMIDS|ReactomePathways|ReactomePathwaysRelation|reactome_reaction_exporter|reactome_stable_ids|HumanDiseasePathways|gene_association\.reactome).*\.(txt|gz|zip)$'
+
+[[sources]]
+id = "rhea"
+name = "Rhea Current TSV Release"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.rhea-db.org/help/download"
+license_policy = "Freely available curated reactions. Preserve Rhea release, ChEBI participant mapping, UniProt cross-reference version, and citation metadata."
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.expasy.org/databases/rhea/tsv/rhea-tsv.tar.gz"
+path = "rhea-tsv.tar.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.expasy.org/databases/rhea/tsv/rhea2uniprot_sprot.tsv"
+path = "rhea2uniprot_sprot.tsv"
+
+[[sources]]
+id = "uniprot_human_reviewed"
+name = "UniProtKB Human Reviewed Proteins"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.uniprot.org/help/downloads"
+license_policy = "Open protein knowledgebase. Preserve UniProt release and use reviewed human entries for protein/enzyme normalization."
+
+[[sources.files]]
+kind = "url"
+url = "https://rest.uniprot.org/uniprotkb/stream?compressed=true&format=tsv&query=reviewed:true%20AND%20organism_id:9606&fields=accession%2Cid%2Cgene_names%2Cprotein_name%2Cxref_reactome%2Cxref_chembl"
+path = "human_reviewed_uniprotkb.tsv.gz"
+
+[[sources]]
+id = "wikipathways"
+name = "WikiPathways Current Human Release"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.wikipathways.org/download.html"
+license_policy = "Open science pathway data. Preserve monthly release date and file format."
+
+[[sources.files]]
+kind = "index"
+url = "https://data.wikipathways.org/current/gmt/"
+include_regex = 'Homo_sapiens\.gmt$'
+
+[[sources.files]]
+kind = "index"
+url = "https://data.wikipathways.org/current/gpml/"
+include_regex = 'Homo_sapiens\.zip$'
+
+[[sources.files]]
+kind = "index"
+url = "https://data.wikipathways.org/current/rdf/"
+include_regex = '\.(ttl|nt|trig|zip|gz)$'
+
+[[sources]]
+id = "ensembl_human"
+name = "Ensembl Human Gene Annotation"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.ensembl.org/info/data/ftp/index.html"
+license_policy = "Open-core stable gene IDs. Preserve Ensembl release number in filename/manifest."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ensembl.org/pub/current_gtf/homo_sapiens/"
+include_regex = 'Homo_sapiens\.GRCh38\.[0-9]+\.gtf\.gz$|CHECKSUMS$'
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ensembl.org/pub/current_gff3/homo_sapiens/"
+include_regex = 'Homo_sapiens\.GRCh38\.[0-9]+\.gff3\.gz$|CHECKSUMS$'
+
+[[sources]]
+id = "ncbi_gene_human"
+name = "NCBI Gene Human"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.ncbi.nlm.nih.gov/gene/"
+license_policy = "NCBI open data. Follow NCBI/NLM policies and rate guidance."
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
+path = "Homo_sapiens.gene_info.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2ensembl.gz"
+path = "gene2ensembl.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2pubmed.gz"
+path = "gene2pubmed.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_summary.gz"
+path = "gene_summary.gz"
+
+[[sources]]
+id = "disease_ontologies"
+name = "MONDO, Disease Ontology, MeSH"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://mondo.monarchinitiative.org/pages/download/"
+license_policy = "Open ontologies; MeSH terms require NLM terms and conditions review for reuse."
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/mondo.owl"
+path = "mondo/mondo.owl"
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/mondo.obo"
+path = "mondo/mondo.obo"
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/doid.owl"
+path = "doid/doid.owl"
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/doid.obo"
+path = "doid/doid.obo"
+
+[[sources.files]]
+kind = "index"
+url = "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/"
+include_regex = '(desc|qual|supp)20[0-9]{2}\.gz$'
+
+[[sources.files]]
+kind = "url"
+url = "https://nlmpubs.nlm.nih.gov/projects/mesh/rdf/mesh.nt.gz"
+path = "mesh/rdf/mesh.nt.gz"
+
+[[sources.files]]
+kind = "url"
+url = "https://nlmpubs.nlm.nih.gov/projects/mesh/rdf/mesh.nt.gz.sha1"
+path = "mesh/rdf/mesh.nt.gz.sha1"
+
+[[sources]]
+id = "ncit"
+name = "NCI Thesaurus OBO Edition"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://evs.nci.nih.gov/evs-download/thesaurus-downloads/"
+license_policy = "NCIt is open with attribution requirements. Preserve release/version and terms."
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/ncit.owl"
+path = "ncit/ncit.owl"
+enabled = false
+note = "OWL is not parsed by the current normalized builder; keep disabled unless RDF/OWL ontology workflows are needed."
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/ncit.obo"
+path = "ncit/ncit.obo"
+
+[[sources]]
+id = "oncotree"
+name = "MSK OncoTree"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://oncotree.mskcc.org/"
+license_policy = "Open cancer type ontology/API. Store API version/release and terms before public redistribution."
+
+[[sources.files]]
+kind = "url"
+url = "https://oncotree.mskcc.org/api/tumorTypes?version=oncotree_latest_stable"
+path = "tumorTypes.latest_stable.json"
+
+[[sources]]
+id = "opentargets_core"
+name = "Open Targets Platform Core Datasets"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://platform-docs.opentargets.org/data-access/datasets"
+license_policy = "Open Targets bulk datasets. Update release path quarterly; preserve parquet partitions."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/target/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "target"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/disease/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "disease"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/association_overall_direct/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "association_overall_direct"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/association_by_datasource_direct/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "association_by_datasource_direct"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/clinical_target/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "clinical_target"
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/drug_molecule/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 2
+path_prefix = "drug_molecule"
+
+[[sources]]
+id = "opentargets_evidence_full"
+name = "Open Targets Full Evidence"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://platform-docs.opentargets.org/data-access/datasets"
+license_policy = "Large open-core evidence partitions. Enable only when you have storage and downstream parquet tooling ready."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/evidence/"
+include_regex = '\.parquet$|_SUCCESS$'
+recursive = true
+max_depth = 3
+
+[[sources]]
+id = "pubmed"
+name = "PubMed Baseline and Updatefiles"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://ftp.ncbi.nlm.nih.gov/pubmed/"
+license_policy = "NCBI/NLM open bibliographic data. Preserve .md5 files and release/update semantics."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/"
+include_regex = 'pubmed[0-9]+n[0-9]+\.xml\.gz(\.md5)?$'
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ncbi.nlm.nih.gov/pubmed/updatefiles/"
+include_regex = 'pubmed[0-9]+n[0-9]+\.xml\.gz(\.md5)?$'
+
+[[sources]]
+id = "pubtator3"
+name = "PubTator 3 Bulk"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://www.ncbi.nlm.nih.gov/research/pubtator3/"
+license_policy = "Open API/bulk annotations. Heavy source; keep derived NLP version separate from curated truth."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ncbi.nlm.nih.gov/pub/lu/PubTator3/"
+include_regex = '\.(gz|zip|tsv|txt)$'
+recursive = true
+max_depth = 2
+
+[[sources]]
+id = "europe_pmc_oa"
+name = "Europe PMC Open Access"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://europepmc.org/downloads/openaccess"
+license_policy = "OA articles retain per-article licenses. Do not treat all OA full text as uniformly redistributable."
+
+[[sources.files]]
+kind = "index"
+url = "https://europepmc.org/ftp/oa/"
+include_regex = '\.(tar\.gz|zip|xml\.gz)$'
+recursive = true
+max_depth = 2
+
+[[sources]]
+id = "pmc_oa_bulk"
+name = "PMC Open Access Bulk"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://pmc.ncbi.nlm.nih.gov/tools/openftlist/"
+license_policy = "Only the PMC Open Access Subset is bulk-downloadable; per-article license terms vary. PMC bulk FTP is scheduled to change after August 2026."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_bulk/"
+include_regex = '\.(tar\.gz|txt\.tar\.gz|xml\.tar\.gz|filelist\.csv)$'
+recursive = true
+max_depth = 3
+
+[[sources]]
+id = "icite_api"
+name = "NIH iCite API"
+layer = "open_core"
+enabled_by_default = false
+official_url = "https://support.icite.nih.gov/hc/en-us/articles/9513563045787-Bulk-Data-and-API"
+license_policy = "Use API or official snapshot repository; store field list and query offsets in manifest."
+
+[[sources.files]]
+kind = "api_cursor"
+url = "https://icite.od.nih.gov/api/pubs"
+filename = "icite_pubs.jsonl"
+limit = 200
+offset = 0
+
+[[sources]]
+id = "cell_ontology"
+name = "Cell Ontology"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://obophenotype.github.io/cell-ontology/"
+license_policy = "OBO Foundry cell type ontology. Preserve release metadata, term IDs, synonyms, parent edges, xrefs, and download checksum."
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/cl.obo"
+path = "cl.obo"
+
+[[sources]]
+id = "uberon"
+name = "Uberon Multi-species Anatomy Ontology"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://uberon.github.io/downloads.html"
+license_policy = "OBO Foundry anatomy/tissue ontology. Preserve release metadata, term IDs, synonyms, parent edges, xrefs, and download checksum."
+
+[[sources.files]]
+kind = "url"
+url = "https://purl.obolibrary.org/obo/uberon.obo"
+path = "uberon.obo"
+
+[[sources]]
+id = "efo"
+name = "Experimental Factor Ontology"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.ebi.ac.uk/efo/"
+license_policy = "Apache 2.0 EFO context ontology. Use as a cross-reference source for tissues and experimental context; preserve release and terms of use."
+
+[[sources.files]]
+kind = "url"
+url = "https://www.ebi.ac.uk/efo/efo.obo"
+path = "efo.obo"
+
+[[sources]]
+id = "cellosaurus"
+name = "Cellosaurus Cell Line Knowledge Resource"
+layer = "open_core"
+enabled_by_default = true
+official_url = "https://www.cellosaurus.org/"
+license_policy = "Open cell line normalization source. Preserve release, problematic/misidentified cell line flags, disease/tissue mappings, and citation."
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.txt"
+path = "cellosaurus.txt"
+
+[[sources.files]]
+kind = "url"
+url = "https://ftp.expasy.org/databases/cellosaurus/cellosaurus.obo"
+path = "cellosaurus.obo"
+
+[[sources]]
+id = "chembl"
+name = "ChEMBL"
+layer = "second_phase"
+enabled_by_default = false
+official_url = "https://chembl.gitbook.io/chembl-interface-documentation/downloads"
+license_policy = "Second phase. Recheck redistribution and API terms before public service launch."
+
+[[sources.files]]
+kind = "index"
+url = "https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/"
+include_regex = '\.(sqlite|dump|tar\.gz|md5|sha256|txt)$'
+
+[[sources]]
+id = "dgidb"
+name = "DGIdb"
+layer = "second_phase"
+enabled_by_default = false
+official_url = "https://dgidb.org/"
+license_policy = "Aggregated open-access drug-gene source. Preserve DGIdb version/API date and source-specific licenses; do not collapse source licenses into a single permissive license."
+
+[[sources.files]]
+kind = "api_cursor"
+url = "https://dgidb.org/api/graphql"
+filename = "dgidb_interactions.jsonl"
+note = "Use GraphQL interactions pagination; records include sourceDbName, sourceDbVersion, license, and licenseLink."
+
+[[sources]]
+id = "hmdb"
+name = "HMDB"
+layer = "licensed_enhancement"
+enabled_by_default = false
+official_url = "https://hmdb.ca/downloads"
+license_policy = "Non-commercial research enhancement. HMDB downloads page states commercial use or redistribution requires explicit permission and source acknowledgment; keep local only unless permission is documented."
+
+[[sources.files]]
+kind = "manual"
+note = "Download HMDB Version 5.0 metabolite XML manually from https://hmdb.ca/downloads after selecting Academic/non-commercial use, then place the ZIP/XML under raw_lake/hmdb/<release_id>/ for normalized ingestion."
+
+[[sources]]
+id = "kegg"
+name = "KEGG"
+layer = "licensed_enhancement"
+enabled_by_default = false
+official_url = "https://www.kegg.jp/kegg/legal.html"
+license_policy = "License enhancement. Public service use requires KEGG licensing path."
+
+[[sources.files]]
+kind = "manual"
+note = "Configure KEGG only after license subscription/API terms are approved."
+
+[[sources]]
+id = "disgenet"
+name = "DisGeNET"
+layer = "licensed_enhancement"
+enabled_by_default = false
+official_url = "https://www.disgenet.com/downloads"
+license_policy = "License enhancement. Use official business/subscription path for full datasets."
+
+[[sources.files]]
+kind = "manual"
+note = "Configure after account, license tier, and redistribution boundary are approved."
+
+[[sources]]
+id = "gdc"
+name = "NCI GDC"
+layer = "controlled_access"
+enabled_by_default = false
+official_url = "https://docs.gdc.cancer.gov/API/Users_Guide/Getting_Started/"
+license_policy = "Open-access metadata can be queried; controlled data requires approval and token handling."
+
+[[sources.files]]
+kind = "url"
+url = "https://api.gdc.cancer.gov/projects?size=1000&format=JSON"
+path = "projects.json"

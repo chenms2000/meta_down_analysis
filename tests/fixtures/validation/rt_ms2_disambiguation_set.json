@@ -1,0 +1,24 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Synthetic RT/MS2 cases for validating manual compound feature imports.",
+  "manual_feature_tables": ["compound_rt.csv", "compound_ms2.csv"],
+  "cases": [
+    {
+      "case_id": "hexose_rt_ms2_glucose_like",
+      "input": {
+        "formula": "C6H12O6",
+        "mz": 181.070664466812,
+        "adduct": "[M+H]+",
+        "ppm_tolerance": 5,
+        "rt": 5.11,
+        "rt_method": "hilic_pos",
+        "rt_tolerance": 0.2,
+        "ms2_peaks": [[85.03, 100], [97.028, 50]],
+        "ms2_mz_tolerance": 0.02,
+        "ion_mode": "positive"
+      },
+      "expected": {"status": "matched", "required_components": ["mass", "formula", "rt", "ms2"]}
+    }
+  ]
+}

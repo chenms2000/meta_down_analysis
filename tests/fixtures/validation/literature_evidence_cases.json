@@ -1,0 +1,55 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Literature evidence overlay contract checks for idempotency, traceability, provenance, and scoring isolation.",
+  "endpoint": "/evidence",
+  "cases": [
+    {
+      "case_id": "edge_to_sentence_trace",
+      "input": {
+        "edge_uid": "edge_e6623b4553fe69a10935",
+        "limit": 5
+      },
+      "expected": {
+        "status": "found",
+        "support_classes": ["confirm"],
+        "requires_sentence_trace": true,
+        "requires_mentions": true,
+        "requires_relation_candidate_provenance": true,
+        "requires_p_literature_contract": true
+      }
+    },
+    {
+      "case_id": "novel_candidate_overlay_only",
+      "input": {
+        "subject_uid": "metabolite_ac4e50b230bc34d1a5e2",
+        "predicate": "metabolite_regulates_gene",
+        "object_uid": "target_bf73c0866b76a18efd0e",
+        "limit": 5
+      },
+      "expected": {
+        "status": "found",
+        "support_classes": ["novel_candidate"],
+        "requires_relation_candidate_provenance": true,
+        "requires_p_literature_contract": true,
+        "must_not_enter_graph_scoring": true
+      }
+    },
+    {
+      "case_id": "conflict_candidate_overlay_only",
+      "input": {
+        "subject_uid": "metabolite_b46788672b9557379373",
+        "predicate": "metabolite_regulates_gene",
+        "object_uid": "gene_5b02880c283246508926",
+        "limit": 5
+      },
+      "expected": {
+        "status": "found",
+        "support_classes": ["conflict_candidate"],
+        "requires_relation_candidate_provenance": true,
+        "requires_p_literature_contract": true,
+        "must_not_enter_graph_scoring": true
+      }
+    }
+  ]
+}

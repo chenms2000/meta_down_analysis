@@ -1,0 +1,19 @@
+Trait score differential analysis across all cell types
+======================================================
+score_matrix: Epithelial_Meta_SchemeC_AUROC_UpDownNet_outputs/cellTraitMatrices/Meta_wAUCell_up_S3_geneSetZ_cellZ.csv.gz
+celltype_key: cancerType_celltype
+celltype_value: ALL_CELLTYPES
+group_col: tissue
+group1: Tumor
+group2: Adjacent
+n_celltypes_requested: 29
+n_celltypes_analyzed: 13
+n_celltypes_skipped: 16
+n_celltype_trait_tests: 17719
+n_significant_global: 16113
+
+Notes:
+Per-celltype q values are q_ttest and q_wilcoxon.
+Global q values across all celltype-trait pairs are q_ttest_global and q_wilcoxon_global.
+For net/z-scored scores, ordinary logFC may be undefined if values include negatives.
+Use mean_diff and z_wilcoxon as primary signed effect statistics.

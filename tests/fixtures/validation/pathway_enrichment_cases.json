@@ -1,0 +1,19 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Known metabolite lists for pathway enrichment and explanation stability checks.",
+  "cases": [
+    {
+      "case_id": "glycolysis_seed_set",
+      "input": [
+        {"HMDB": "HMDB0000122", "log2FC": 1.2, "padj": 0.01, "direction": "up"},
+        {"name": "pyruvate", "log2FC": 0.9, "padj": 0.02, "direction": "up"}
+      ],
+      "expected": {
+        "top_pathway_label": "glycolysis",
+        "directional_enrichment": "up",
+        "requires_explanation_paths": true
+      }
+    }
+  ]
+}

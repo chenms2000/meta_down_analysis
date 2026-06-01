@@ -1,0 +1,93 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "C2 real-analysis fixtures that mimic uploaded metabolite lists and differential metabolomics tables with clean, messy, and oncology-context inputs.",
+  "max_paths": 8,
+  "max_hops": 4,
+  "cases": [
+    {
+      "case_id": "pure_metabolite_list_energy_core",
+      "input": [
+        {"input_id": "glucose_chebi", "ChEBI": "CHEBI:17234"},
+        {"input_id": "pyruvate_chebi", "ChEBI": "CHEBI:15361"},
+        {"input_id": "l_lactate_chebi", "ChEBI": "CHEBI:16651"}
+      ],
+      "expected": {
+        "requires_analysis_pack": true,
+        "expected_matched_min": 3,
+        "expected_direction_counts": {"unknown": 3},
+        "requires_rankings_non_empty": true,
+        "requires_evidence_refs": true,
+        "requires_literature_evidence_pack": true,
+        "expected_quality_warning_codes": ["metabolite_list_mode"]
+      }
+    },
+    {
+      "case_id": "differential_metabolomics_table_directional",
+      "input": [
+        {"input_id": "glucose_up", "HMDB": "HMDB0000122", "log2FC": 1.4, "pvalue": 0.002, "padj": 0.01, "direction": "up"},
+        {"input_id": "pyruvate_down", "ChEBI": "CHEBI:15361", "log2FC": -0.9, "pvalue": 0.01, "padj": 0.04, "direction": "down"},
+        {"input_id": "lactate_up", "ChEBI": "CHEBI:16651", "log2FC": 1.1, "pvalue": 0.004, "padj": 0.02, "direction": "up"}
+      ],
+      "expected": {
+        "top_pathway_label": "glycolysis",
+        "requires_analysis_pack": true,
+        "expected_matched_min": 3,
+        "expected_with_fold_change_min": 3,
+        "expected_with_p_value_min": 3,
+        "expected_direction_counts": {"up": 2, "down": 1},
+        "directional_enrichment": "up",
+        "requires_rankings_non_empty": true,
+        "requires_evidence_refs": true,
+        "requires_literature_evidence_pack": true
+      }
+    },
+    {
+      "case_id": "messy_table_duplicate_unmatched_ambiguous_name",
+      "input": [
+        {"input_id": "pyruvate_name_1", "name": "pyruvate", "log2FC": -0.6, "padj": 0.04, "direction": "down"},
+        {"input_id": "pyruvate_name_2_duplicate", "name": "pyruvate", "log2FC": -0.4, "pvalue": 0.03, "direction": "down"},
+        {"input_id": "glucose_hmdb_up", "HMDB": "HMDB0000122", "log2FC": 1.1, "padj": 0.02, "direction": "up"},
+        {"input_id": "mannose_ambiguous_name", "name": "mannose", "log2FC": -0.8, "padj": 0.03, "direction": "down"},
+        {"input_id": "hexose_mass_ambiguous", "formula": "C6H12O6", "mz": 181.070664466812, "adduct": "[M+H]+", "ppm_tolerance": 5},
+        {"input_id": "unknown_name_unmatched", "name": "not_a_real_metabolite_for_c2_fixture"}
+      ],
+      "expected": {
+        "requires_analysis_pack": true,
+        "expected_matched_min": 3,
+        "expected_ambiguous_min": 2,
+        "expected_unmatched_min": 1,
+        "expected_with_fold_change_min": 3,
+        "expected_with_p_value_min": 3,
+        "expected_direction_counts": {"up": 1, "down": 2},
+        "requires_review_queue": true,
+        "requires_quality_warnings": true,
+        "requires_duplicate_warning": true,
+        "expected_quality_warning_codes": ["ambiguous_inputs_present", "unmatched_inputs_present", "duplicate_matched_metabolites"],
+        "requires_rankings_non_empty": true,
+        "requires_evidence_refs": true,
+        "requires_literature_evidence_pack": true
+      }
+    },
+    {
+      "case_id": "oncology_lung_adenocarcinoma_small_table",
+      "input": [
+        {"input_id": "glucose_up_luad", "HMDB": "HMDB0000122", "log2FC": 1.2, "padj": 0.01, "direction": "up", "cancer_context": "lung_adenocarcinoma"},
+        {"input_id": "lactate_up_luad", "ChEBI": "CHEBI:16651", "log2FC": 1.5, "padj": 0.005, "direction": "up", "cancer_context": "lung_adenocarcinoma"},
+        {"input_id": "tryptophan_down_luad", "ChEBI": "CHEBI:16828", "log2FC": -0.8, "padj": 0.03, "direction": "down", "cancer_context": "lung_adenocarcinoma"},
+        {"input_id": "glutamine_up_luad", "ChEBI": "CHEBI:18050", "log2FC": 0.7, "padj": 0.04, "direction": "up", "cancer_context": "lung_adenocarcinoma"},
+        {"input_id": "glutathione_down_luad", "ChEBI": "CHEBI:16856", "log2FC": -1.0, "padj": 0.02, "direction": "down", "cancer_context": "lung_adenocarcinoma"}
+      ],
+      "expected": {
+        "requires_analysis_pack": true,
+        "expected_matched_min": 5,
+        "expected_with_fold_change_min": 5,
+        "expected_with_p_value_min": 5,
+        "expected_direction_counts": {"up": 3, "down": 2},
+        "requires_rankings_non_empty": true,
+        "requires_evidence_refs": true,
+        "requires_literature_evidence_pack": true
+      }
+    }
+  ]
+}

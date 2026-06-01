@@ -1,0 +1,3110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>代谢组知识图谱分析工作台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f7f6;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-solid: #ffffff;
+      --panel-soft: #f5f8f7;
+      --ink: #10231f;
+      --muted: #63736f;
+      --line: #cbdcd7;
+      --line-strong: #9bb9b1;
+      --blue: #1f7a8c;
+      --blue-soft: #dff2f5;
+      --teal: #12846f;
+      --teal-soft: #def4ed;
+      --amber: #a86513;
+      --amber-soft: #fff2d9;
+      --red: #c02652;
+      --red-soft: #ffe5ec;
+      --green: #168451;
+      --green-soft: #dcfce7;
+      --slate: #344842;
+      --shadow: 0 22px 58px rgba(27, 57, 50, 0.11);
+      --glow: 0 0 0 1px rgba(18, 132, 111, 0.16), 0 16px 34px rgba(31, 122, 140, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      background:
+        linear-gradient(90deg, rgba(24, 80, 70, 0.04) 1px, transparent 1px),
+        linear-gradient(rgba(24, 80, 70, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 14% 10%, rgba(18, 132, 111, 0.13), transparent 28%),
+        linear-gradient(135deg, #f3f7f6 0%, #fbfcfa 48%, #eef6f1 100%);
+      background-size: 30px 30px, 30px 30px, auto, auto;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 28px;
+      border-bottom: 1px solid rgba(159, 183, 200, 0.62);
+      background: rgba(248, 251, 253, 0.88);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 12px 30px rgba(16, 32, 47, 0.08);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 800;
+      color: #0b1f33;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .release {
+      max-width: 520px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.45;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(430px, 0.92fr) minmax(620px, 1.08fr);
+      gap: 20px;
+      width: min(1600px, calc(100% - 36px));
+      margin: 20px auto 28px;
+    }
+
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(15, 143, 137, 0.08), rgba(255, 255, 255, 0));
+    }
+
+    .panel-head h2 {
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 750;
+    }
+
+    .panel-head p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .workspace-body,
+    .results-body {
+      display: grid;
+      gap: 16px;
+      padding: 18px 20px 20px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .step {
+      min-width: 0;
+      border: 1px solid rgba(159, 183, 200, 0.78);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .step strong {
+      display: block;
+      color: var(--blue);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .step span {
+      display: block;
+      margin-top: 4px;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+    }
+
+    label,
+    .field-label {
+      display: grid;
+      gap: 7px;
+      color: #314158;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .form-section {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      border: 1px solid rgba(159, 183, 200, 0.68);
+      border-radius: 8px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.76);
+      box-shadow: inset 3px 0 0 rgba(15, 143, 137, 0.32);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .section-title strong {
+      color: #0b1f33;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 820;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      text-align: right;
+    }
+
+    .input-shell {
+      position: relative;
+      display: grid;
+      gap: 7px;
+    }
+
+    textarea,
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    }
+
+    textarea:focus,
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="password"]:focus,
+    select:focus {
+      border-color: var(--blue);
+      box-shadow: var(--glow);
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      font-size: 13px;
+      line-height: 1.48;
+      background:
+        linear-gradient(rgba(15, 143, 137, 0.045) 1px, transparent 1px),
+        rgba(255, 255, 255, 0.94);
+      background-size: 100% 24px;
+    }
+
+    .filebox {
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(244, 248, 251, 0.84);
+    }
+
+    .filebox input { width: 100%; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .button-row,
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 9px 13px;
+      background: #e7edf4;
+      color: #0f172a;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(16, 32, 47, 0.12);
+    }
+    button:active { transform: translateY(0); }
+    button:disabled {
+      opacity: 0.62;
+      cursor: wait;
+      transform: none;
+    }
+
+    .primary {
+      background: linear-gradient(135deg, #1f7a8c, #12846f);
+      color: #ffffff;
+      box-shadow: 0 12px 26px rgba(18, 132, 111, 0.24);
+    }
+
+    .secondary {
+      border-color: rgba(15, 143, 137, 0.28);
+      background: var(--teal-soft);
+      color: #0f5d58;
+    }
+
+    .ghost {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--slate);
+    }
+
+    .danger-soft {
+      border-color: rgba(192, 38, 82, 0.2);
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .quality-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .quality-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .quality-card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .quality-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .semantic-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .semantic-table th,
+    .semantic-table td {
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.38;
+    }
+
+    .semantic-table tr:last-child td { border-bottom: 0; }
+
+    .semantic-table th {
+      color: var(--slate);
+      font-weight: 800;
+      background: var(--panel-soft);
+      white-space: nowrap;
+    }
+
+    .semantic-table td {
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .compact-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .guide {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.76);
+      overflow: hidden;
+    }
+
+    .guide summary {
+      padding: 12px 14px;
+      color: #0f5d58;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .guide-content {
+      display: grid;
+      gap: 10px;
+      padding: 0 12px 12px;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .guide-content code,
+    .tagline code {
+      border-radius: 6px;
+      padding: 1px 5px;
+      background: var(--panel-soft);
+      color: #0f172a;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .status {
+      padding: 11px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(159, 183, 200, 0.5);
+      background: rgba(244, 248, 251, 0.88);
+      color: var(--slate);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .status.ok {
+      border-color: rgba(22, 132, 81, 0.25);
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status.warn {
+      border-color: rgba(186, 107, 0, 0.25);
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .status.err {
+      border-color: rgba(192, 38, 82, 0.25);
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .section {
+      min-width: 0;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    .section:first-child { border-top: 0; padding-top: 0; }
+
+    .section h3 {
+      margin-bottom: 10px;
+      color: #0f172a;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 780;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(92px, 1fr));
+      gap: 9px;
+    }
+
+    .metric {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .metric strong {
+      display: block;
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .input-check-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.88);
+      font-size: 13px;
+    }
+
+    .input-check-table th,
+    .input-check-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      line-height: 1.35;
+    }
+
+    .input-check-table tr:last-child th,
+    .input-check-table tr:last-child td { border-bottom: 0; }
+
+    .input-check-table th {
+      width: 52%;
+      color: var(--muted);
+      font-weight: 760;
+      background: var(--panel-soft);
+    }
+
+    .input-check-table td {
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.88);
+      overflow-wrap: anywhere;
+    }
+
+    .item.warn { border-color: #f1c27b; background: #fffaf0; }
+    .item.err { border-color: #f4a9b6; background: #fff7f8; }
+
+    .topline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 780;
+      line-height: 1.35;
+    }
+
+    .topline span:first-child { min-width: 0; }
+
+    .item p {
+      margin-top: 6px;
+      color: #314158;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .tagline {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: var(--panel-soft);
+      color: var(--slate);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .badge.ok { background: var(--green-soft); color: var(--green); }
+    .badge.warn { background: var(--amber-soft); color: var(--amber); }
+    .badge.err { background: var(--red-soft); color: var(--red); }
+    .badge.info { background: var(--blue-soft); color: var(--blue); }
+
+    .bar {
+      position: relative;
+      height: 8px;
+      margin-top: 9px;
+      border-radius: 999px;
+      background: #dfeaf2;
+      overflow: hidden;
+    }
+
+    .bar span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--w, 0%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--teal), #68b684);
+    }
+
+    .confidence-grid,
+    .graph-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .confidence-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .confidence-card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .confidence-card span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .graph-column {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .graph-column h4 {
+      margin: 0;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 800;
+    }
+
+    .graph-node {
+      width: 100%;
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 8px 9px;
+      background: rgba(255, 255, 255, 0.9);
+      text-align: left;
+      box-shadow: none;
+    }
+
+    .graph-node:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(18, 24, 38, 0.08); }
+    .graph-node.metabolite { border-left-color: var(--teal); }
+    .graph-node.pathway { border-left-color: var(--blue); }
+    .graph-node.target { border-left-color: var(--amber); }
+    .graph-node.disease { border-left-color: var(--red); }
+
+    .graph-node b {
+      display: block;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .graph-node small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .graph-detail {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--panel-soft);
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .evidence-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 9px;
+      align-items: center;
+    }
+
+    button.inline-action {
+      min-height: 30px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .evidence-panel {
+      position: fixed;
+      top: 76px;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      width: min(580px, calc(100vw - 36px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(16, 32, 47, 0.24);
+      overflow: hidden;
+    }
+
+    .evidence-panel[hidden] { display: none; }
+
+    .evidence-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .evidence-panel-head h2 {
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 780;
+    }
+
+    .evidence-panel-head p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .evidence-panel-body {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 14px 16px 18px;
+      overflow: auto;
+      background: #f6fafc;
+    }
+
+    .evidence-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .evidence-kv {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 9px;
+      background: #ffffff;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .evidence-kv strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+    }
+
+    .evidence-sentence {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: #ffffff;
+    }
+
+    .evidence-sentence p {
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .evidence-sentence mark {
+      border-radius: 4px;
+      padding: 0 2px;
+      background: var(--amber-soft);
+      color: #7c2d12;
+    }
+
+    .evidence-empty {
+      border: 1px dashed #aebed0;
+      border-radius: 8px;
+      padding: 14px;
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .export-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .export-options,
+    .report-cache-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .export-options {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 9px;
+      background: #ffffff;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .checkline input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--teal);
+    }
+
+    .report-cache-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #ffffff;
+    }
+
+    .report-cache-title {
+      min-width: 0;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .report-cache-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .raw {
+      max-height: 430px;
+      margin: 0;
+      overflow: auto;
+      border-radius: 8px;
+      padding: 12px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .empty-state {
+      border: 1px dashed #aebed0;
+      border-radius: 8px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    details.raw-details summary {
+      margin-bottom: 9px;
+      color: var(--teal);
+      font-size: 13px;
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    @media (max-width: 1120px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .release { text-align: left; max-width: 100%; }
+      main {
+        grid-template-columns: 1fr;
+        width: min(100% - 24px, 920px);
+        margin-top: 12px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      header { padding: 14px 16px; }
+      .panel-head { flex-direction: column; }
+      .workspace-body, .results-body { padding: 14px; }
+      .flow, .grid2, .grid3, .mode-grid, .compact-grid, .metrics, .confidence-grid, .graph-grid, .quality-grid { grid-template-columns: 1fr; }
+      .evidence-meta-grid { grid-template-columns: 1fr; }
+      .evidence-panel {
+        inset: 8px;
+        width: auto;
+      }
+      textarea { min-height: 190px; }
+      button { width: 100%; }
+      .section-title {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .section-title span { text-align: left; }
+      .button-row, .chip-row, .export-row, .evidence-action-row, .export-options { display: grid; grid-template-columns: 1fr; }
+      .report-cache-item { grid-template-columns: 1fr; }
+      .report-cache-actions { justify-content: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>代谢组知识图谱分析工作台</h1>
+      <p class="subtitle">上传代谢物表或粘贴自由文本，返回实体匹配、通路/靶点/疾病排序、证据摘要和研究优先级提示。</p>
+    </div>
+    <div id="release" class="release">release: loading</div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>输入与流程</h2>
+          <p>默认使用本地确定性解释器；外部 LLM 只负责改写叙述，不能改图谱或评分。</p>
+        </div>
+      </div>
+
+      <div class="workspace-body">
+        <div class="flow" aria-label="使用流程">
+          <div class="step"><strong>1. 准备数据</strong><span>CSV/TSV、JSON 或自然语言列表</span></div>
+          <div class="step"><strong>2. 补充背景</strong><span>癌种、组织、细胞类型可选</span></div>
+          <div class="step"><strong>3. 运行分析</strong><span>规范化、图传播、证据回链</span></div>
+          <div class="step"><strong>4. 查看结果</strong><span>先看质量，再看解释和排名</span></div>
+        </div>
+
+        <details class="guide" open>
+          <summary>详细说明</summary>
+          <div class="guide-content">
+            <p>推荐列名：<code>name</code>、<code>metabolite</code>、<code>HMDB</code>、<code>ChEBI</code>、<code>PubChem CID</code>、<code>KEGG</code>、<code>InChIKey</code>、<code>formula</code>、<code>mz</code>、<code>adduct</code>、<code>log2FC</code>、<code>pvalue</code>、<code>padj</code>、<code>direction</code>。</p>
+            <p>匹配规则会把不确定项放进复核队列，不会强行进入评分。结果里的“证据可追溯”表示排名项至少能回链到图谱边、文献证据或来源记录。</p>
+            <p>背景 JSON 可填写癌种、组织、细胞类型或实验条件等字段。软匹配会加权相关背景，硬匹配只保留明确命中的背景条目。</p>
+          </div>
+        </details>
+
+        <form id="chat-form">
+          <div class="form-section">
+            <div class="section-title">
+              <strong>数据输入</strong>
+              <span>上传文件或直接粘贴表格</span>
+            </div>
+
+            <label>
+              输入模式
+              <select id="input-mode">
+                <option value="metabolite_table" selected>普通代谢物表</option>
+                <option value="differential_table">差异结果表</option>
+                <option value="trait_score_differential">TraitScore 差异表</option>
+              </select>
+              <span id="input-mode-hint" class="hint"></span>
+            </label>
+
+            <label>
+              上传 CSV/TSV/TXT
+              <div class="filebox">
+                <input id="file" type="file" accept=".csv,.tsv,.txt,.json">
+              </div>
+              <span class="hint">文件会在浏览器本地读取后填入下方文本框。</span>
+            </label>
+
+            <label>
+              粘贴数据
+              <textarea id="table-text" spellcheck="false" placeholder="在这里粘贴 CSV/TSV、JSON 或代谢物列表"></textarea>
+            </label>
+            <span class="hint">备注：差异表可包含 <code>metabolite,log2FC,pvalue,padj,direction</code>；也可以使用 <code>HMDB</code>、<code>ChEBI</code>、<code>KEGG</code>、<code>InChIKey</code> 等 ID 列。脏数据或重复项会进入复核队列。</span>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">
+              <strong>研究问题与背景</strong>
+              <span>自由填写问题和研究背景</span>
+            </div>
+
+            <label class="input-shell">
+              问题
+              <input id="question" type="text" placeholder="例如：请解释主要通路、方向性和证据边界。">
+            </label>
+
+            <span class="hint">示例问题：解释主要通路和方向性；指出需要复核的输入；整理成组会汇报摘要；列出优先验证的通路、靶点和证据依据。</span>
+
+            <div class="compact-grid">
+              <label class="input-shell">
+                背景 JSON 或关键词
+                <input id="context" type="text" placeholder='{"cancer_type":"...","tissue":"..."}'>
+              </label>
+            <label>
+              背景模式
+              <select id="context-mode">
+                <option value="soft" selected>soft：加权相关背景</option>
+                <option value="hard">hard：只保留命中背景</option>
+              </select>
+            </label>
+            </div>
+
+            <span class="hint">备注：背景可以写成 JSON，也可以只写关键词；不填背景也可以运行。</span>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">
+              <strong>分析参数</strong>
+              <span>控制解释后端、图搜索深度和证据回查数量</span>
+            </div>
+
+            <div class="grid3">
+              <label>
+                解释后端
+                <select id="backend">
+                  <option value="local" selected>本地安全模板</option>
+                  <option value="external_text">外部 LLM（文字）</option>
+                  <option value="external_text_chunked">外部 LLM（分层文字）</option>
+                  <option value="external_llm">外部 LLM（JSON）</option>
+                </select>
+              </label>
+              <label>
+                最大路径数
+                <input id="max-paths" type="number" min="1" max="100" value="25">
+              </label>
+              <label>
+                证据条数
+                <input id="evidence-limit" type="number" min="1" max="100" value="25">
+              </label>
+            </div>
+
+          <details class="guide" id="llm-config-guide">
+            <summary>外部 LLM API 设置</summary>
+            <div class="guide-content">
+              <p id="llm-status">正在读取外部 LLM 状态。</p>
+              <p>当前服务未带环境变量启动时，可以在这里填一次性配置后直接分析。API key 只随本次请求发送到本机服务，不写入返回 JSON、manifest 或审计哈希。</p>
+              <div class="grid2">
+                <label>
+                  Endpoint
+                  <input id="llm-endpoint" type="text" placeholder="https://api.openai.com/v1/chat/completions">
+                </label>
+                <label>
+                  Model
+                  <input id="llm-model" type="text" placeholder="填写你的 OpenAI 兼容服务模型名">
+                </label>
+              </div>
+              <div class="grid2">
+                <label>
+                  API key
+                  <input id="llm-api-key" type="password" autocomplete="off" placeholder="sk-...">
+                </label>
+                <label>
+                  最大输出 token
+                  <input id="llm-max-output-tokens" type="number" min="256" max="8000" value="1600">
+                </label>
+              </div>
+              <div class="grid2">
+                <label>
+                  请求超时（秒）
+                  <input id="llm-timeout-seconds" type="number" min="10" max="300" value="120">
+                </label>
+                <label>
+                  代理 URL（可选）
+                  <input id="llm-proxy-url" type="text" placeholder="例如 http://127.0.0.1:7890">
+                </label>
+              </div>
+              <div class="hint">建议先选“外部 LLM（文字）”，它对模型返回格式要求更低；“外部 LLM（JSON）”适合能稳定输出严格 JSON 的模型。</div>
+              <div class="chip-row" aria-label="LLM API 预设">
+                <button type="button" class="ghost" data-llm-endpoint="https://api.deepseek.com/chat/completions" data-llm-model="deepseek-v4-pro">DeepSeek V4 Pro</button>
+                <button type="button" class="ghost" data-llm-endpoint="https://api.deepseek.com/chat/completions" data-llm-model="deepseek-v4-flash">DeepSeek V4 Flash</button>
+                <button type="button" class="ghost" data-llm-endpoint="https://api.openai.com/v1/chat/completions" data-llm-model="">OpenAI 兼容</button>
+              </div>
+              <div class="button-row">
+                <button id="llm-test" type="button" class="secondary">测试 LLM 连接</button>
+              </div>
+              <div id="llm-test-result" class="status" hidden></div>
+            </div>
+          </details>
+
+            <div class="grid2">
+              <label>
+                最大跳数
+                <input id="max-hops" type="number" min="1" max="6" value="4">
+              </label>
+              <label>
+                子图跳数
+                <input id="subgraph-hops" type="number" min="1" max="3" value="1">
+              </label>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button id="precheck" class="secondary" type="button">Precheck</button>
+            <button id="submit" class="primary" type="submit">开始分析</button>
+            <button id="flow-test" class="secondary" type="button">流程测试</button>
+            <button id="clear" class="danger-soft" type="button">清空结果</button>
+          </div>
+          <div id="precheck-panel" class="status warn" hidden></div>
+
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>分析结果</h2>
+          <p>建议先确认输入检查和复核队列，再解读通路、靶点、疾病和预测提示。</p>
+        </div>
+      </div>
+      <div class="results-body">
+        <div id="status" class="status" aria-live="polite">等待输入</div>
+        <div id="results" class="results">
+          <div class="empty-state">上传或粘贴一组代谢物后，结果会按“质量检查、解释摘要、证据、排名、研究优先级、原始 JSON”依次展示。</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside id="evidence-panel" class="evidence-panel" hidden aria-label="证据详情">
+    <div class="evidence-panel-head">
+      <div>
+        <h2 id="evidence-title">证据详情</h2>
+        <p id="evidence-subtitle">按边、实体、句子或候选关系回查原始证据。</p>
+      </div>
+      <button id="evidence-close" type="button" class="ghost inline-action">关闭</button>
+    </div>
+    <div id="evidence-body" class="evidence-panel-body">
+      <div class="evidence-empty">选择一个“查看证据”按钮后，这里会显示支持关系、证据句和实体提及。</div>
+    </div>
+  </aside>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const statusBox = el("status");
+    const results = el("results");
+    let graphNodeDetails = {};
+    let evidenceRequests = {};
+    let localReportRequests = {};
+    let reportCache = [];
+    let lastResponse = null;
+    let lastPrecheck = null;
+    let lastPrecheckSignature = "";
+
+    function setStatus(text, kind = "") {
+      statusBox.className = "status" + (kind ? " " + kind : "");
+      statusBox.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function asArray(value) {
+      return Array.isArray(value) ? value : [];
+    }
+
+    const INPUT_MODE_CONFIG = {
+      metabolite_table: {
+        label: "普通代谢物表",
+        endpoint: "/chat",
+        hint: "按代谢物名称或稳定 ID 做实体匹配，可选 log2FC/padj/direction。"
+      },
+      differential_table: {
+        label: "差异结果表",
+        endpoint: "/chat",
+        hint: "按已计算好的差异表解析 effect、p/q 值和方向，不读取原始丰度矩阵。"
+      },
+      trait_score_differential: {
+        label: "TraitScore 差异表",
+        endpoint: "/chat",
+        hint: "适配 TraitScore group-diff 输出，并保留 ratio、class seed、identity cluster 的低置信解释边界。"
+      }
+    };
+
+    function selectedInputMode() {
+      const value = el("input-mode")?.value || "metabolite_table";
+      return INPUT_MODE_CONFIG[value] ? value : "metabolite_table";
+    }
+
+    function inputModeConfig() {
+      return INPUT_MODE_CONFIG[selectedInputMode()] || INPUT_MODE_CONFIG.metabolite_table;
+    }
+
+    function compact(value, fallback = "") {
+      if (value === null || value === undefined || value === "") return fallback;
+      return String(value);
+    }
+
+    function scoreText(value) {
+      const numeric = Number(value || 0);
+      if (!Number.isFinite(numeric)) return "0";
+      return Math.abs(numeric) >= 10 ? numeric.toFixed(1) : numeric.toFixed(4);
+    }
+
+    function percentWidth(score, maxScore) {
+      const numeric = Number(score || 0);
+      const max = Number(maxScore || 0);
+      if (!Number.isFinite(numeric) || !Number.isFinite(max) || max <= 0) return 8;
+      return Math.max(8, Math.min(100, (numeric / max) * 100));
+    }
+
+    function badge(text, kind = "") {
+      return `<span class="badge${kind ? ` ${kind}` : ""}">${escapeHtml(text)}</span>`;
+    }
+
+    function traceBadge(claimRefs) {
+      return claimRefs?.traceability_passed ? badge("证据可追溯", "ok") : badge("证据不足", "warn");
+    }
+
+    function shortText(value, max = 42) {
+      const text = compact(value, "");
+      return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+    }
+
+    function shortId(value, max = 20) {
+      const text = compact(value, "");
+      return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+    }
+
+    function csvEscape(value) {
+      const text = String(value ?? "");
+      return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    }
+
+    function downloadHtmlAsWord(filename, title, markdown) {
+      const html = printableReportHtml(title, markdown, false);
+      downloadText(filename, html, "application/msword;charset=utf-8");
+    }
+
+    function printableReportHtml(title, markdown, autoPrint = true) {
+      return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+        <style>
+          @page{margin:18mm}
+          body{font-family:"Microsoft YaHei",Arial,sans-serif;line-height:1.55;color:#111827}
+          pre{white-space:pre-wrap;font-size:12px}
+        </style></head>
+        <body><pre>${escapeHtml(markdown)}</pre>${autoPrint ? `<script>window.onload=()=>{window.focus();window.print();};<\/script>` : ""}</body></html>`;
+    }
+
+    function printMarkdownAsPdf(title, markdown) {
+      const html = printableReportHtml(title, markdown, true);
+      const win = window.open("", "_blank", "width=900,height=720");
+      if (!win) {
+        downloadText("metabo-analysis-printable.html", html, "text/html;charset=utf-8");
+        setStatus("浏览器阻止了 PDF 打印窗口，已下载可打印 HTML；打开后可另存为 PDF。", "warn");
+        return;
+      }
+      win.opener = null;
+      win.document.write(html);
+      win.document.close();
+      setStatus("已打开 PDF 打印窗口，请在打印对话框中选择“另存为 PDF”。", "ok");
+    }
+
+    function exportOptions() {
+      return {
+        original: el("export-original")?.checked !== false,
+        explanation: el("export-explanation")?.checked !== false,
+        evidence: el("export-evidence")?.checked !== false,
+        rankings: el("export-rankings")?.checked !== false,
+        predictions: el("export-predictions")?.checked !== false,
+        raw: el("export-raw")?.checked === true
+      };
+    }
+
+    function firstValue(values) {
+      return asArray(values).find((value) => value !== null && value !== undefined && String(value) !== "") || "";
+    }
+
+    function evidenceRequestFromRef(ref) {
+      if (!ref) return null;
+      const request = { limit: intValue("evidence-limit", 25) };
+      if (ref.edge_uid) {
+        request.edge_uid = ref.edge_uid;
+      } else if (firstValue(ref.relation_uids)) {
+        request.relation_uid = firstValue(ref.relation_uids);
+      } else if (firstValue(ref.sentence_uids)) {
+        request.sentence_uid = firstValue(ref.sentence_uids);
+      } else {
+        return null;
+      }
+      return request;
+    }
+
+    function evidenceRequestFromRefs(refs, entityUid = "") {
+      const allRefs = asArray(refs);
+      const preferred = [
+        allRefs.find((ref) => ref.ref_type === "literature_support" && (ref.edge_uid || firstValue(ref.relation_uids) || firstValue(ref.sentence_uids))),
+        allRefs.find((ref) => ref.edge_uid),
+        allRefs.find((ref) => firstValue(ref.relation_uids)),
+        allRefs.find((ref) => firstValue(ref.sentence_uids))
+      ].filter(Boolean);
+      for (const ref of preferred) {
+        const request = evidenceRequestFromRef(ref);
+        if (request) return request;
+      }
+      if (entityUid) return { entity_uid: entityUid, limit: intValue("evidence-limit", 25) };
+      return null;
+    }
+
+    function evidenceRequestForRow(row, idKey) {
+      return evidenceRequestFromRefs(row?.evidence_refs, row?.[idKey] || "");
+    }
+
+    function registerEvidenceRequest(title, request) {
+      if (!request) return "";
+      const id = `evidence_${Object.keys(evidenceRequests).length + 1}`;
+      evidenceRequests[id] = { title, request };
+      return id;
+    }
+
+    function renderEvidenceButton(title, request, label = "查看证据") {
+      const id = registerEvidenceRequest(title, request);
+      if (!id) return "";
+      return `<button type="button" class="ghost inline-action" data-evidence-request="${escapeHtml(id)}" aria-label="${escapeHtml(title)}">${escapeHtml(label)}</button>`;
+    }
+
+    function registerLocalReport(kind, title, payload) {
+      const id = `local_report_${Object.keys(localReportRequests).length + 1}`;
+      localReportRequests[id] = { kind, title, payload };
+      return id;
+    }
+
+    function evidenceRefLabel(ref, index) {
+      const pmid = firstValue(ref.pmids);
+      const relationUid = firstValue(ref.relation_uids);
+      const sentenceUid = firstValue(ref.sentence_uids);
+      return [
+        ref.support_class || `证据 ${index + 1}`,
+        pmid ? `PMID ${pmid}` : "",
+        ref.p_literature ? `p=${scoreText(ref.p_literature)}` : "",
+        ref.edge_uid ? shortId(ref.edge_uid) : shortId(relationUid || sentenceUid)
+      ].filter(Boolean).join(" · ");
+    }
+
+    function renderEvidenceKvs(rows) {
+      const html = rows
+        .filter(([, value]) => value !== null && value !== undefined && String(value) !== "")
+        .map(([label, value]) => `<div class="evidence-kv"><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</div>`)
+        .join("");
+      return html ? `<div class="evidence-meta-grid">${html}</div>` : "";
+    }
+
+    function renderMentionText(mention) {
+      return [
+        mention.surface || mention.normalized_surface || shortId(mention.entity_uid),
+        mention.entity_type,
+        mention.entity_uid ? shortId(mention.entity_uid, 24) : "",
+        mention.matched_field ? `field ${mention.matched_field}` : ""
+      ].filter(Boolean).join(" · ");
+    }
+
+    function highlightedSentence(sentence, mentions) {
+      const text = compact(sentence.sentence_text, "");
+      const ranges = asArray(mentions)
+        .map((mention) => ({
+          start: Number(mention.start_offset),
+          end: Number(mention.end_offset),
+          label: renderMentionText(mention)
+        }))
+        .filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.start >= 0 && range.end > range.start && range.end <= text.length)
+        .sort((left, right) => left.start - right.start || right.end - left.end);
+      if (!ranges.length) return escapeHtml(text);
+      let cursor = 0;
+      let html = "";
+      for (const range of ranges) {
+        if (range.start < cursor) continue;
+        html += escapeHtml(text.slice(cursor, range.start));
+        html += `<mark title="${escapeHtml(range.label)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
+        cursor = range.end;
+      }
+      html += escapeHtml(text.slice(cursor));
+      return html;
+    }
+
+    function renderEvidenceResponse(data, request) {
+      const support = asArray(data.support);
+      const relations = asArray(data.relation_candidates);
+      const sentences = asArray(data.sentences);
+      const mentions = asArray(data.mentions);
+      const requestHtml = renderEvidenceKvs(Object.entries(request).map(([key, value]) => [key, value]));
+      const supportHtml = support.length ? `<div class="section"><h3>支持关系</h3><div class="list">${
+        support.slice(0, 8).map((row) => `<div class="item">
+          <div class="topline"><span>${escapeHtml(row.support_uid || `${row.subject_uid || ""} ${row.predicate || ""} ${row.object_uid || ""}`)}</span>${badge(row.support_class || "support", "info")}</div>
+          ${renderEvidenceKvs([
+            ["关系", [row.subject_uid, row.predicate, row.object_uid].filter(Boolean).join(" → ")],
+            ["文献概率", row.p_literature ? scoreText(row.p_literature) : ""],
+            ["PMID/PMCID", [...asArray(row.pmids), ...asArray(row.pmcids)].slice(0, 8).join(", ")],
+            ["证据句", asArray(row.sentence_uids).slice(0, 8).join(", ")],
+            ["现有图谱边", asArray(row.supported_existing_edge_uids).slice(0, 6).join(", ")],
+            ["license", row.license_id],
+            ["source release", row.source_release],
+            ["parser/config", [row.parser_hash, row.config_hash].filter(Boolean).join(" / ")]
+          ])}
+        </div>`).join("")
+      }</div></div>` : "";
+      const relationHtml = relations.length ? `<div class="section"><h3>候选关系</h3><div class="list">${
+        relations.slice(0, 12).map((row) => `<div class="item">
+          <div class="topline"><span>${escapeHtml(row.relation_uid || "relation")}</span>${badge(scoreText(row.calibrated_prob), "info")}</div>
+          ${renderEvidenceKvs([
+            ["三元组", [row.subject_uid, row.predicate, row.object_uid].filter(Boolean).join(" → ")],
+            ["极性/触发词", [row.polarity, row.trigger_phrase].filter(Boolean).join(" · ")],
+            ["PMID/PMCID", [row.pmid, row.pmcid].filter(Boolean).join(", ")],
+            ["句子", row.sentence_uid],
+            ["抽取规则", row.extraction_rule_id],
+            ["license", row.license_id],
+            ["source release", row.source_release]
+          ])}
+        </div>`).join("")
+      }</div></div>` : "";
+      const sentenceHtml = sentences.length ? `<div class="section"><h3>证据句</h3><div class="list">${
+        sentences.slice(0, 12).map((sentence) => {
+          const localMentions = mentions.filter((mention) => mention.sentence_uid === sentence.sentence_uid);
+          const mentionLine = localMentions.length ? `<div class="tagline">命中实体：${escapeHtml(localMentions.slice(0, 12).map(renderMentionText).join("；"))}</div>` : "";
+          return `<div class="evidence-sentence">
+            <div class="topline"><span>${escapeHtml(sentence.sentence_uid || "sentence")}</span>${badge(sentence.section || "section", "info")}</div>
+            <p>${highlightedSentence(sentence, localMentions)}</p>
+            <div class="tagline">${escapeHtml([sentence.pmid ? `PMID ${sentence.pmid}` : "", sentence.pmcid ? `PMCID ${sentence.pmcid}` : "", sentence.source_release || ""].filter(Boolean).join(" · "))}</div>
+            ${mentionLine}
+          </div>`;
+        }).join("")
+      }</div></div>` : "";
+      const empty = !support.length && !relations.length && !sentences.length && !mentions.length
+        ? `<div class="evidence-empty">没有查到句级文献证据。这个引用可能只来自 curated 图谱边、source record，或当前 release 的文献层没有覆盖到该关系。</div>`
+        : "";
+      return [requestHtml, empty, supportHtml, relationHtml, sentenceHtml].filter(Boolean).join("");
+    }
+
+    function showEvidencePanel(title, subtitle, html) {
+      el("evidence-title").textContent = title || "证据详情";
+      el("evidence-subtitle").textContent = subtitle || "按边、实体、句子或候选关系回查原始证据。";
+      el("evidence-body").innerHTML = html;
+      el("evidence-panel").hidden = false;
+    }
+
+    function hideEvidencePanel() {
+      el("evidence-panel").hidden = true;
+    }
+
+    async function openEvidenceRequest(id) {
+      const entry = evidenceRequests[id];
+      if (!entry) return;
+      const params = new URLSearchParams();
+      Object.entries(entry.request).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && String(value) !== "") params.set(key, value);
+      });
+      showEvidencePanel(entry.title, "正在查询 /evidence", `<div class="evidence-empty">正在加载证据句和关系候选...</div>`);
+      try {
+        const response = await fetch(`/evidence?${params.toString()}`);
+        const data = await response.json();
+        showEvidencePanel(entry.title, `status: ${data.status || "unknown"}`, renderEvidenceResponse(data, entry.request));
+      } catch (error) {
+        showEvidencePanel(entry.title, "证据查询失败", `<div class="evidence-empty">证据请求失败：${escapeHtml(error.message)}</div>`);
+      }
+    }
+
+    function renderConfidenceGuide(data) {
+      const pack = data.analysis_pack || {};
+      const summary = pack.input_summary || {};
+      const inputCount = Number(summary.input_count ?? data.input_normalization?.record_count ?? 0);
+      const geneticExposures = Number(summary.genetic_exposure_available_count ?? summary.genetic_exposure_count ?? asArray(pack.genetic_exposures).length);
+      const matched = Number(summary.strict_matched_count ?? summary.matched_count ?? 0);
+      const expandedInputs = Number(summary.expanded_candidate_input_count ?? summary.expanded_input_count ?? pack.expanded_summary?.expanded_candidate_input_count ?? pack.expanded_summary?.expanded_input_count ?? 0);
+      const expandedCandidates = Number(summary.expanded_candidate_count ?? pack.expanded_summary?.expanded_candidate_count ?? asArray(pack.expanded_candidates).length);
+      const analysisSeedInputs = Number(summary.analysis_seed_input_count ?? pack.expanded_summary?.analysis_seed_input_count ?? matched + expandedInputs);
+      const ambiguous = Number(summary.ambiguous_count ?? 0);
+      const unmatched = Number(summary.unresolved_input_count ?? pack.expanded_summary?.unresolved_input_count ?? ((summary.unmatched_count ?? 0) + (summary.invalid_count ?? 0)));
+      const warnings = [...asArray(pack.quality_warnings), ...asArray(pack.blocked_reasons)];
+      const lossy = warnings.some((item) => item.code === "propagation_compression_lossy");
+      const matchRatio = inputCount > 0 ? matched / inputCount : 0;
+      const seedRatio = inputCount > 0 ? analysisSeedInputs / inputCount : 0;
+      const confidence = lossy || matchRatio < 0.6
+        ? ["探索性", "warn", "图传播或输入匹配存在不稳定因素，先当作线索。"]
+        : ambiguous || unmatched
+          ? ["需复核", "warn", "有部分输入需要人工确认，核心解释可读但不宜过度外推。"]
+          : ["较稳健", "ok", "输入匹配一致，优先解读直接通路和可追溯证据。"];
+      const topPathways = asArray(pack.pathway_rankings).slice(0, 3).map((row) => row.display_name || row.pathway_uid).filter(Boolean);
+      const topTargets = asArray(pack.target_rankings).slice(0, 3).map((row) => row.display_name || row.target_uid).filter(Boolean);
+      const topDiseases = asArray(pack.disease_rankings).slice(0, 2).map((row) => row.display_name || row.disease_uid).filter(Boolean);
+      const cards = [
+        ["总体可信度", confidence[0], confidence[2], confidence[1]],
+        ["Genetic exposure", `${geneticExposures}/${inputCount || 0}`, "GCST summary stats 可用于 genetic overlap、locus mapping、colocalization 和 MR-style exposure；它不是化合物 ID。", geneticExposures ? "ok" : "info"],
+        ["Strict identity", `${matched}/${inputCount || 0}`, "高置信、近似唯一的化合物身份，用于强表述和精确证据。", matchRatio >= 0.8 ? "ok" : "warn"],
+        ["Expanded seeds", `${analysisSeedInputs}/${inputCount || 0} inputs; ${expandedCandidates} candidates`, "低权重候选、类似物或类别层线索，只作为机制提示。", seedRatio >= 0.6 ? "ok" : "warn"],
+        ["重点通路", topPathways.join("、") || "暂无", "优先看与输入代谢物直接相关的前几项。", "info"],
+        ["扩展假设", [...topTargets, ...topDiseases].join("、") || "暂无", "靶点、疾病和药物优先级只作为后续验证线索。", "warn"]
+      ];
+      return `<div class="section"><h3>可信度阅读卡</h3><div class="confidence-grid">${
+        cards.map(([title, value, note, kind]) => `<div class="confidence-card"><div class="topline"><span>${escapeHtml(title)}</span>${badge(value, kind)}</div><span>${escapeHtml(note)}</span></div>`).join("")
+      }</div></div>`;
+    }
+
+    function renderInterpretationReport(report) {
+      if (!report || (!asArray(report.executive_summary).length && !asArray(report.conclusion_chains).length)) return "";
+      const summaries = asArray(report.executive_summary).slice(0, 5);
+      const chains = asArray(report.conclusion_chains).slice(0, 5);
+      const nodeCards = asArray(report.node_cards).slice(0, 8);
+      const reviewQueue = asArray(report.review_queue).slice(0, 8);
+      const validation = asArray(report.next_validation).slice(0, 5);
+      const summaryHtml = summaries.map((row, index) => {
+        const kind = row.confidence_tier === "high" ? "ok" : row.confidence_tier === "medium" ? "info" : "warn";
+        return `<div class="item">
+          <div class="topline"><span>${escapeHtml(index + 1)}. ${escapeHtml(row.headline || "核心结论")}</span>${badge(row.confidence_tier || "exploratory", kind)}</div>
+          <div class="tagline">输入支持 ${escapeHtml(row.supporting_input_count ?? 0)} · 证据引用 ${escapeHtml(row.evidence_ref_count ?? 0)}${row.review_required ? " · 需要复核" : ""}</div>
+          <p>${escapeHtml(row.boundary || "该结论只作为研究解释阅读。")}</p>
+        </div>`;
+      }).join("");
+      const chainHtml = chains.map((claim) => {
+        const inputs = asArray(claim.supporting_inputs).slice(0, 6).map((input) => {
+          const parts = [
+            input.input_name || input.matched_name,
+            input.direction ? `方向 ${input.direction}` : "",
+            (input.effect_value !== "" && input.effect_value !== undefined ? `${input.effect_label || "log2FC"} ${input.effect_value}` : (input.log2FC !== "" && input.log2FC !== undefined ? `log2FC ${input.log2FC}` : "")),
+            input.padj !== "" && input.padj !== undefined ? `padj ${input.padj}` : ""
+          ].filter(Boolean).join(" · ");
+          return `<span class="pill">${escapeHtml(parts)}</span>`;
+        }).join("");
+        const chain = asArray(claim.relation_chain).filter(Boolean).join(" → ");
+        const positives = asArray(claim.confidence_reasons?.positive_factors);
+        const downgrades = asArray(claim.confidence_reasons?.downgrade_factors);
+        const evidenceButton = renderEvidenceButton(
+          `核心结论证据：${claim.headline || claim.claim_id}`,
+          evidenceRequestFromRefs(claim.evidence_refs),
+          "查看结论证据"
+        );
+        return `<div class="item">
+          <div class="topline"><span>${escapeHtml(claim.headline || claim.claim_id || "结论链")}</span>${badge(claim.confidence_tier || "exploratory", claim.confidence_tier === "high" ? "ok" : claim.confidence_tier === "medium" ? "info" : "warn")}</div>
+          <p><strong>依据：</strong>${escapeHtml(claim.basis || "由输入匹配、图谱和证据共同支持。")}</p>
+          ${inputs ? `<div class="chip-row">${inputs}</div>` : ""}
+          <p><strong>关系链：</strong>${escapeHtml(chain || "输入代谢物 → 图谱/证据 → 研究解释")}</p>
+          <p><strong>可能机制：</strong>${escapeHtml(claim.possible_mechanism || "该条目需要结合上下文和实验验证。")}</p>
+          <p><strong>解释边界：</strong>${escapeHtml(claim.boundary || "研究解释，不作为确定因果。")}</p>
+          ${positives.length || downgrades.length ? `<div class="grid2">
+            <div><strong>加分因素</strong>${positives.map((item) => `<div class="tagline">+ ${escapeHtml(item)}</div>`).join("") || `<div class="tagline">暂无明确加分项</div>`}</div>
+            <div><strong>降级因素</strong>${downgrades.map((item) => `<div class="tagline">- ${escapeHtml(item)}</div>`).join("") || `<div class="tagline">暂无主要降级项</div>`}</div>
+          </div>` : ""}
+          <div class="evidence-action-row">${evidenceButton || ""}</div>
+        </div>`;
+      }).join("");
+      const nodeHtml = nodeCards.map((card) => {
+        const refs = asArray(card.open_details?.evidence_refs);
+        const action = refs.length ? renderEvidenceButton(`节点说明：${card.display_name}`, evidenceRequestFromRefs(refs, card.node_uid), "查看节点证据") : "";
+        return `<div class="item">
+          <div class="topline"><span>${escapeHtml(card.display_name || card.node_uid || "节点")}</span>${badge(card.node_type || "node", "info")}</div>
+          <p>${escapeHtml(card.plain_language_definition || "")}</p>
+          <div class="tagline">角色：${escapeHtml(card.role_in_network || "")}</div>
+          <div class="tagline">出现原因：${escapeHtml(card.why_in_this_analysis || "")}</div>
+          <div class="tagline">与输入关系：${escapeHtml(card.relation_to_input || "")}</div>
+          <div class="tagline">边界：${escapeHtml(card.boundary || "")}</div>
+          ${action ? `<div class="evidence-action-row">${action}</div>` : ""}
+        </div>`;
+      }).join("");
+      const reviewHtml = reviewQueue.map((row) => `<div class="item warn">
+        <div class="topline"><span>${escapeHtml(row.input_name || row.display_name || row.input_id || "待复核输入")}</span>${badge(row.queue_type || "review", "warn")}</div>
+        <div class="tagline">${escapeHtml(row.reason || "")}</div>
+        <p>${escapeHtml(row.suggested_action || "补充稳定 ID 或正交证据后再解读。")}</p>
+      </div>`).join("");
+      const validationHtml = validation.map((row) => `<div class="item">
+        <div class="topline"><span>${escapeHtml(row.headline || row.claim_id || "验证建议")}</span>${badge(row.claim_id || "claim", "info")}</div>
+        ${asArray(row.suggestions).map((item) => `<div class="tagline">- ${escapeHtml(item)}</div>`).join("")}
+      </div>`).join("");
+      return `<div class="section"><h3>核心结论</h3><div class="tagline">这里按“结论-依据-机制-边界”组织已有图谱、证据和置信度；下方排名表是附录式支持层。</div><div class="list">${summaryHtml}</div></div>
+        ${chainHtml ? `<div class="section"><h3>结论链路</h3><div class="list">${chainHtml}</div></div>` : ""}
+        ${nodeHtml ? `<div class="section"><h3>关键节点说明</h3><div class="grid2">${nodeHtml}</div></div>` : ""}
+        ${reviewHtml ? `<div class="section"><h3>不确定性与复核队列</h3><div class="list">${reviewHtml}</div></div>` : ""}
+        ${validationHtml ? `<div class="section"><h3>下一步验证建议</h3><div class="list">${validationHtml}</div></div>` : ""}`;
+    }
+
+    function renderDatabaseAccuracy(pack) {
+      const accuracy = pack?.database_accuracy || {};
+      if (!accuracy.contract_version) return "";
+      const summary = accuracy.identity_decision_summary || {};
+      const featureSummary = accuracy.input_feature_type_summary || {};
+      const facts = asArray(accuracy.mechanism_ready_facts).slice(0, 8);
+      const blocked = asArray(accuracy.blocked_inputs).slice(0, 8);
+      const countText = Object.entries(summary).map(([key, value]) => `${key}: ${value}`).join(" 路 ") || "no decisions";
+      const featureText = Object.entries(featureSummary).map(([key, value]) => `${key}: ${value}`).join(" 路 ") || "no feature summary";
+      const factHtml = facts.map((fact) => `<div class="item">
+        <div class="topline"><span>${escapeHtml(fact.subject_name || fact.subject_uid || "subject")} ${escapeHtml(fact.predicate || fact.fact_type || "supports")} ${escapeHtml(fact.object_name || fact.object_uid || "object")}</span>${badge(fact.support_status || "fact", "ok")}</div>
+        <div class="tagline">${escapeHtml(fact.fact_type || "")} 路 source ${escapeHtml(fact.source_record_uid || fact.evidence_assertion_uid || "missing")}</div>
+      </div>`).join("");
+      const blockedHtml = blocked.map((row) => `<div class="item warn">
+        <div class="topline"><span>${escapeHtml(row.feature_label || row.input_id || "blocked input")}</span>${badge(row.decision_status || "blocked", "warn")}</div>
+        <div class="tagline">${escapeHtml(asArray(row.rejected_reasons).join("; ") || row.decision_rule || "")}</div>
+      </div>`).join("");
+      return `<div class="section"><h3>数据库准确度层</h3>
+        <div class="confidence-grid">
+          <div class="confidence-card"><div class="topline"><span>v2 fact store</span>${badge(accuracy.store_available ? "enabled" : "missing", accuracy.store_available ? "ok" : "warn")}</div><span>${escapeHtml(accuracy.contract_version)}</span></div>
+          <div class="confidence-card"><div class="topline"><span>身份决策</span>${badge(countText, "info")}</div><span>${escapeHtml(featureText)}</span></div>
+          <div class="confidence-card"><div class="topline"><span>机制事实</span>${badge(String(facts.length), facts.length ? "ok" : "warn")}</div><span>Core cards prefer mechanism-ready facts when available; legacy rankings remain supporting appendix.</span></div>
+        </div>
+        ${factHtml ? `<div class="list">${factHtml}</div>` : `<div class="evidence-empty">暂无可直接进入机制结论的 v2 facts。</div>`}
+        ${blockedHtml ? `<h4>阻断/复核输入</h4><div class="list">${blockedHtml}</div>` : ""}
+      </div>`;
+    }
+
+    function registerGraphNode(type, title, subtitle, detailRows, evidenceRequest = null) {
+      const id = `${type}_${Object.keys(graphNodeDetails).length + 1}`;
+      graphNodeDetails[id] = { type, title, subtitle, detailRows, evidenceRequest };
+      return { id, type, title, subtitle };
+    }
+
+    function renderGraphNode(node) {
+      return `<button type="button" class="graph-node ${escapeHtml(node.type)}" data-graph-node="${escapeHtml(node.id)}">
+        <b>${escapeHtml(shortText(node.title, 46))}</b>
+        <small>${escapeHtml(shortText(node.subtitle, 62))}</small>
+      </button>`;
+    }
+
+    function renderEvidenceMap(pack, predictions) {
+      graphNodeDetails = {};
+      const metabolites = asArray(pack?.matched).slice(0, 5).map((row) => {
+        const candidate = bestCandidate(row);
+        const label = recordLabel(row);
+        const matchedName = candidate.display_name || row.display_name || row.metabolite_uid || "";
+        const external = candidate.primary_external_id || row.primary_external_id || "";
+        return registerGraphNode("metabolite", label, matchedName || external || "输入代谢物", [
+          ["匹配实体", matchedName || "未提供"],
+          ["数据库 ID", external || row.metabolite_uid || "未提供"],
+          ["匹配分数", row.top_score !== undefined ? scoreText(row.top_score) : "未提供"],
+          ["匹配边际", row.top_margin !== undefined ? scoreText(row.top_margin) : "未提供"]
+        ], row.metabolite_uid ? { entity_uid: row.metabolite_uid, limit: intValue("evidence-limit", 25) } : null);
+      });
+      const pathways = asArray(pack?.pathway_rankings).slice(0, 5).map((row) => registerGraphNode(
+        "pathway",
+        row.display_name || row.pathway_uid,
+        `${scoreText(row.score)} · ${row.primary_external_id || row.pathway_uid || ""}`,
+        [
+          ["分数", scoreText(row.score)],
+          ["证据", row.claim_refs?.traceability_passed ? "可追溯" : "证据不足"],
+          ["PMID", asArray(row.supported_pmids).slice(0, 5).join(", ") || "暂无"],
+          ["说明", "优先结合输入方向和背景阅读；靠后条目可能来自图传播扩展。"]
+        ],
+        evidenceRequestForRow(row, "pathway_uid")
+      ));
+      const targets = asArray(pack?.target_rankings).slice(0, 4).map((row) => registerGraphNode(
+        "target",
+        row.display_name || row.target_uid,
+        `${scoreText(row.score)} · 假设生成`,
+        [
+          ["分数", scoreText(row.score)],
+          ["数据库 ID", row.primary_external_id || row.target_uid || "未提供"],
+          ["文献概率", row.max_p_literature ? scoreText(row.max_p_literature) : "暂无"],
+          ["PMID", asArray(row.supported_pmids).slice(0, 5).join(", ") || "暂无"],
+          ["说明", "这是图谱/文献关联排序，不代表已验证调控关系。"]
+        ],
+        evidenceRequestForRow(row, "target_uid")
+      ));
+      const diseases = asArray(pack?.disease_rankings).slice(0, 3).map((row) => registerGraphNode(
+        "disease",
+        row.display_name || row.disease_uid,
+        `${scoreText(row.score)} · 文献关联`,
+        [
+          ["分数", scoreText(row.score)],
+          ["数据库 ID", row.primary_external_id || row.disease_uid || "未提供"],
+          ["文献概率", row.max_p_literature ? scoreText(row.max_p_literature) : "暂无"],
+          ["PMID", asArray(row.supported_pmids).slice(0, 5).join(", ") || "暂无"],
+          ["说明", "这里表示背景相关疾病/表型文献关联，不是诊断或预测。"]
+        ],
+        evidenceRequestForRow(row, "disease_uid")
+      ));
+      const drugCount = asArray(predictions?.drug_rankings).length;
+      const columns = [
+        ["输入代谢物", metabolites],
+        ["核心通路", pathways],
+        ["靶点假设", targets],
+        ["疾病/表型关联", diseases]
+      ].filter(([, nodes]) => nodes.length);
+      if (!columns.length) return "";
+      return `<div class="section"><h3>交互证据图谱</h3>
+        <div class="tagline">点击节点查看来源、分数和解释边界。该图用于浏览“输入 → 通路 → 假设”的分析流，不表示每一条相邻关系都是直接反应边。</div>
+        <div class="graph-grid">${columns.map(([title, nodes]) => `<div class="graph-column"><h4>${escapeHtml(title)}</h4>${nodes.map(renderGraphNode).join("")}</div>`).join("")}</div>
+        <div id="graph-detail" class="graph-detail">选择一个节点查看详情。${drugCount ? `研究优先级 overlay 另有 ${drugCount} 条药物/靶点线索。` : ""}</div>
+      </div>`;
+    }
+
+    function renderExportActions() {
+      return `<div class="section"><h3>导出与报告缓存</h3>
+        <div class="export-row">
+          <button type="button" class="ghost" id="export-json">导出 JSON</button>
+          <button type="button" class="ghost" id="export-md">导出 Markdown</button>
+          <button type="button" class="ghost" id="export-csv">导出 CSV</button>
+          <button type="button" class="ghost" id="export-doc">导出 Word</button>
+          <button type="button" class="ghost" id="export-pdf">导出 PDF</button>
+        </div>
+        <div class="export-options" aria-label="导出内容选择">
+          <label class="checkline"><input id="export-original" type="checkbox" checked>原始输入与匹配概况</label>
+          <label class="checkline"><input id="export-explanation" type="checkbox" checked>LLM/本地解释</label>
+          <label class="checkline"><input id="export-evidence" type="checkbox" checked>证据摘要</label>
+          <label class="checkline"><input id="export-rankings" type="checkbox" checked>通路/靶点/疾病排名</label>
+          <label class="checkline"><input id="export-predictions" type="checkbox" checked>研究优先级 overlay</label>
+          <label class="checkline"><input id="export-raw" type="checkbox">完整原始 JSON</label>
+        </div>
+        <div class="tagline">每次分析会自动缓存一份全局报告；条目旁的“生成局部报告”会缓存单个通路、靶点、路径或药物的短报告。</div>
+        <div id="report-cache-list" class="report-cache-list">${renderReportCacheItems()}</div>
+      </div>`;
+    }
+
+    function renderReportCacheItems() {
+      const cached = reportCache.slice(0, 8).map((report) => `<div class="report-cache-item">
+        <div class="report-cache-title"><strong>${escapeHtml(report.title)}</strong><div class="tagline">${escapeHtml(report.kind)} · ${escapeHtml(report.created_at)}</div></div>
+        <div class="report-cache-actions">
+          <button type="button" class="ghost inline-action" data-report-view="${escapeHtml(report.id)}">查看</button>
+          <button type="button" class="ghost inline-action" data-report-md="${escapeHtml(report.id)}">MD</button>
+          <button type="button" class="ghost inline-action" data-report-doc="${escapeHtml(report.id)}">Word</button>
+          <button type="button" class="ghost inline-action" data-report-pdf="${escapeHtml(report.id)}">PDF</button>
+        </div>
+      </div>`).join("");
+      return cached || `<div class="evidence-empty">暂无缓存报告。</div>`;
+    }
+
+    function refreshReportCacheList() {
+      const box = el("report-cache-list");
+      if (box) box.innerHTML = renderReportCacheItems();
+    }
+
+    function renderPredictionModelSummaryLegacy(pack) {
+      const model = pack?.prediction_model || {};
+      const assessment = model.assessment || {};
+      const high = asArray(model.high_confidence);
+      const medium = asArray(model.medium_confidence);
+      const exploratoryRows = asArray(model.exploratory);
+      const low = asArray(model.low_confidence);
+      if (!assessment.grade && !high.length && !medium.length && !exploratoryRows.length && !low.length) return "";
+      const gradeKind = assessment.grade === "A" || assessment.grade === "B" ? "ok" : assessment.grade === "D" ? "err" : "warn";
+      const highNames = asArray(model.high_confidence_metabolic_themes).slice(0, 3).map((row) => row.display_name || row.theme_id).filter(Boolean);
+      const mediumNames = asArray(model.medium_confidence_metabolic_themes).slice(0, 3).map((row) => row.display_name || row.theme_id).filter(Boolean);
+      const exploratoryNames = exploratoryRows.slice(0, 3).map((row) => row.display_name || row.result_uid || row.prediction).filter(Boolean);
+      const reviewCount = low.length + Number(pack?.input_summary?.ambiguous_count || 0) + Number(pack?.input_summary?.unmatched_count || 0) + Number(pack?.input_summary?.invalid_count || 0);
+      const calibrationRows = [
+        ["theme", assessment.theme_calibration],
+        ["pathway graph", assessment.pathway_graph_calibration],
+        ["overall", assessment.overall_calibration || assessment]
+      ].map(([label, value]) => `${label}: ${value?.grade || "NA"} ${value?.level || ""}`).join(" · ");
+      return `<div class="section"><h3>预测分层摘要</h3><div class="confidence-grid">
+        <div class="confidence-card"><div class="topline"><span>校准分层</span>${badge(`${assessment.grade || "NA"} ${assessment.level || ""}`, gradeKind)}</div><span>${escapeHtml(calibrationRows)}${assessment.message ? `<br>${escapeHtml(assessment.message)}` : ""}</span></div>
+        <div class="confidence-card"><div class="topline"><span>高置信代谢主题</span>${badge(asArray(model.high_confidence_metabolic_themes).length, highNames.length ? "ok" : "info")}</div><span>${escapeHtml(highNames.join("、") || "暂无高置信代谢主题。")}</span></div>
+        <div class="confidence-card"><div class="topline"><span>中置信代谢主题</span>${badge(asArray(model.medium_confidence_metabolic_themes).length, mediumNames.length ? "warn" : "info")}</div><span>${escapeHtml(mediumNames.join("、") || "暂无")}</span></div>
+        <div class="confidence-card"><div class="topline"><span>探索/复核</span>${badge(exploratoryRows.length + reviewCount, exploratoryRows.length + reviewCount ? "warn" : "ok")}</div><span>${escapeHtml(exploratoryNames.join("、") || "低置信和输入问题会进入复核。")}</span></div>
+      </div></div>`;
+    }
+
+    function renderPredictionModelSummary(pack) {
+      const model = pack?.prediction_model || {};
+      const assessment = model.assessment || {};
+      const high = asArray(model.high_confidence);
+      const medium = asArray(model.medium_confidence);
+      const exploratoryRows = asArray(model.exploratory);
+      const low = asArray(model.low_confidence);
+      if (!assessment.grade && !high.length && !medium.length && !exploratoryRows.length && !low.length) return "";
+      const summary = pack?.input_summary || {};
+      const gradeKind = assessment.grade === "A" || assessment.grade === "B" ? "ok" : assessment.grade === "D" ? "warn" : "info";
+      const highNames = asArray(model.high_confidence_metabolic_themes).slice(0, 3).map((row) => row.display_name || row.theme_id).filter(Boolean);
+      const mediumNames = asArray(model.medium_confidence_metabolic_themes).slice(0, 3).map((row) => row.display_name || row.theme_id).filter(Boolean);
+      const exploratoryNames = exploratoryRows.slice(0, 3).map((row) => row.display_name || row.result_uid || row.prediction).filter(Boolean);
+      const unresolvedCount = Number(summary.unresolved_input_count ?? ((summary.unmatched_count || 0) + (summary.invalid_count || 0)));
+      const strictCount = Number(summary.strict_matched_count ?? summary.matched_count ?? 0);
+      const expandedInputCount = Number(summary.expanded_candidate_input_count ?? summary.expanded_input_count ?? 0);
+      const seedInputs = Number(summary.analysis_seed_input_count ?? strictCount + expandedInputCount);
+      const inputCount = Number(summary.input_count ?? 0);
+      const geneticExposures = Number(summary.genetic_exposure_available_count ?? summary.genetic_exposure_count ?? asArray(pack?.genetic_exposures).length);
+      const calibrationRows = [
+        ["theme", assessment.theme_calibration],
+        ["pathway graph", assessment.pathway_graph_calibration],
+        ["overall", assessment.overall_calibration || assessment]
+      ].map(([label, value]) => `${label}: ${value?.grade || "NA"} ${value?.level || ""}`).join(" · ");
+      const reportThemes = [...highNames, ...mediumNames].slice(0, 3);
+      const reviewText = exploratoryNames.length
+        ? `${exploratoryNames.join("、")} 已放入探索层`
+        : "低置信靶点/疾病/药物已放入附录，不作为主结论。";
+      return `<div class="section"><h3>研究可用性摘要</h3><div class="confidence-grid">
+        <div class="confidence-card"><div class="topline"><span>整体口径</span>${badge(`${assessment.grade || "NA"} ${assessment.level || ""}`, gradeKind)}</div><span>${escapeHtml(calibrationRows)}${assessment.message ? `<br>${escapeHtml(assessment.message)}` : ""}</span></div>
+        <div class="confidence-card"><div class="topline"><span>遗传暴露</span>${badge(`${geneticExposures}/${inputCount || 0}`, geneticExposures ? "ok" : "info")}</div><span>GCST 层用于遗传分析；化学身份仍按 strict/expanded/review 分轨。</span></div>
+        <div class="confidence-card"><div class="topline"><span>输入支撑</span>${badge(`${seedInputs}/${inputCount || 0}`, seedInputs ? "ok" : "warn")}</div><span>${escapeHtml(`strict ${strictCount} · expanded ${expandedInputCount} · unresolved ${unresolvedCount}`)}</span></div>
+        <div class="confidence-card"><div class="topline"><span>主报告主题</span>${badge(asArray(model.high_confidence_metabolic_themes).length + asArray(model.medium_confidence_metabolic_themes).length, reportThemes.length ? "ok" : "info")}</div><span>${escapeHtml(reportThemes.join("、") || "当前不做强结论，保留为候选机制。")}</span></div>
+        <div class="confidence-card"><div class="topline"><span>复核队列</span>${badge(unresolvedCount, unresolvedCount ? "warn" : "ok")}</div><span>${escapeHtml(reviewText)}</span></div>
+      </div></div>`;
+    }
+
+    function renderThemeRows(title, rows, kind, note = "") {
+      const visible = asArray(rows).slice(0, 8);
+      if (!visible.length) return "";
+      return `<div class="section"><h3>${escapeHtml(title)}</h3>${note ? `<div class="tagline">${escapeHtml(note)}</div>` : ""}<div class="list">${
+        visible.map((row) => {
+          const coverage = row.coverage || {};
+          const label = row.display_name || row.theme_id || row.prediction_id || "metabolic theme";
+          const details = [
+            `related ${coverage.related_input_count ?? row.input_support_count ?? 0}`,
+            `matched ${coverage.matched_support_count ?? 0}`,
+            `ambiguous ${coverage.ambiguous_support_count ?? 0}`,
+            `unmatched ${coverage.unmatched_support_count ?? 0}`,
+            `direction ${scoreText(coverage.direction_consistency ?? 0)}`,
+            `significant ${coverage.significance_support_count ?? 0}`,
+            coverage.downgrade_reason ? `downgrade ${coverage.downgrade_reason}` : ""
+          ].filter(Boolean).join(" · ");
+          return `<div class="item ${kind === "warn" ? "warn" : ""}">
+            <div class="topline"><span>${escapeHtml(label)}</span>${badge(row.confidence_tier || "theme", kind)}</div>
+            <div class="bar" aria-hidden="true"><span style="--w:${percentWidth(Number(row.calibrated_confidence || 0), 1)}%"></span></div>
+            <div class="tagline">${escapeHtml(details)}</div>
+            ${asArray(row.input_terms).length ? `<div class="tagline">${escapeHtml(asArray(row.input_terms).slice(0, 10).join(", "))}</div>` : ""}
+          </div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderMetabolicThemes(pack) {
+      const model = pack?.prediction_model || {};
+      return [
+        renderThemeRows("高置信代谢主题", model.high_confidence_metabolic_themes, "ok"),
+        renderThemeRows("中置信代谢主题", model.medium_confidence_metabolic_themes, "warn"),
+        renderThemeRows("有输入覆盖但被降级的主题", model.degraded_covered_metabolic_themes, "warn", "这些主题有输入信号，但因为匹配不稳定、方向混合或未匹配输入而降级。")
+      ].filter(Boolean).join("");
+    }
+
+    function renderContextMismatch(pack) {
+      const rows = asArray(pack?.prediction_model?.context_mismatch).slice(0, 8);
+      if (!rows.length) return "";
+      return `<div class="section"><h3>context_mismatch 结果</h3><div class="tagline">语义上不符合当前背景的结果会保留，但从高/中置信降到探索层。</div><div class="list">${
+        rows.map((row) => {
+          const label = row.display_name || row.result_uid || row.prediction || "prediction";
+          const groups = asArray(row.context_mismatch_groups).join(", ") || row.downgrade_reason || "context_mismatch";
+          return `<div class="item warn"><div class="topline"><span>${escapeHtml(label)}</span>${badge(row.confidence_tier || "exploratory", "warn")}</div><div class="tagline">${escapeHtml(groups)}</div></div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderLowConfidenceAppendix(pack, predictions) {
+      const allowedAppendix = (row) => row && row.confidence_tier !== "high" && row.display_confidence !== "high";
+      const modelRows = asArray(pack?.prediction_model?.low_confidence_appendix).filter(allowedAppendix);
+      const drugRows = asArray(predictions?.drug_rankings).filter((row) => allowedAppendix(row) && (row.appendix || row.confidence_tier === "low" || row.calibration_status === "overlay_informed"));
+      const rows = [
+        ...modelRows.map((row) => ({...row, _label: row.display_name || row.result_uid || row.prediction, _type: row.result_type || row.prediction_task})),
+        ...drugRows.map((row) => ({...row, _label: row.drug_name || row.drug_id, _type: "drug"}))
+      ].slice(0, 12);
+      if (!rows.length) return "";
+      return `<div class="section"><h3>探索性靶点/疾病/药物附录</h3><div class="tagline">这些条目不作为主结论，只保留为后续验证线索。</div><div class="list">${
+        rows.map((row) => {
+          const reason = row.appendix_reason || row.downgrade_reason || row.boundary || "low confidence";
+          const raw = row.raw_overlay_score !== undefined ? `raw_overlay_score ${scoreText(row.raw_overlay_score)} · ` : "";
+          return `<div class="item"><div class="topline"><span>${escapeHtml(row._label || "appendix item")}</span>${badge(row.display_confidence || row.confidence_tier || row.confidence || "low", "warn")}</div><div class="tagline">${raw}${escapeHtml(row._type || "")}${row._type ? " · " : ""}${escapeHtml(reason)}</div></div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderMetrics(pack, normalization) {
+      const summary = pack?.input_summary || {};
+      const expandedSummary = pack?.expanded_summary || {};
+      const literature = pack?.literature_evidence_pack || {};
+      const expandedCandidateCount = summary.expanded_candidate_count ?? expandedSummary.expanded_candidate_count ?? asArray(pack?.expanded_candidates).length;
+      const expandedInputCount = summary.expanded_candidate_input_count ?? summary.expanded_input_count ?? expandedSummary.expanded_candidate_input_count ?? expandedSummary.expanded_input_count ?? 0;
+      const unresolvedInputCount = summary.unresolved_input_count ?? expandedSummary.unresolved_input_count ?? ((summary.unmatched_count ?? 0) + (summary.invalid_count ?? 0));
+      const seedInputCount = summary.analysis_seed_input_count ?? expandedSummary.analysis_seed_input_count ?? ((summary.matched_count ?? 0) + expandedInputCount);
+      const seedFeatureCount = summary.analysis_seed_feature_count ?? expandedSummary.analysis_seed_feature_count ?? ((summary.matched_count ?? 0) + expandedCandidateCount);
+      const weightedSeedMass = summary.weighted_seed_mass ?? expandedSummary.weighted_seed_mass ?? 0;
+      const geneticExposureCount = summary.genetic_exposure_available_count ?? summary.genetic_exposure_count ?? asArray(pack?.genetic_exposures).length;
+      const rows = [
+        ["total_inputs", normalization?.record_count ?? summary.input_count ?? 0],
+        ["genetic_exposures", geneticExposureCount],
+        ["strict_matched", summary.strict_matched_count ?? summary.matched_count ?? 0],
+        ["expanded_candidates", expandedInputCount],
+        ["expanded_entity_candidates", expandedCandidateCount],
+        ["ambiguous", summary.ambiguous_count ?? 0],
+        ["unresolved", unresolvedInputCount],
+        ["analysis_seeds_used", `${seedInputCount} inputs / ${seedFeatureCount} weighted features`],
+        ["weighted_seed_mass", scoreText(weightedSeedMass)],
+        ["unique_matched_metabolites", summary.unique_matched_metabolite_count ?? 0],
+        ["biological_entity_pools", asArray(pack?.biological_entity_pools).length],
+        ["pathway_rankings", asArray(pack?.pathway_rankings).length],
+        ["evidence_refs", asArray(pack?.evidence_refs).length],
+        ["literature_support", literature.support_count ?? 0]
+      ];
+      return `<div class="section"><h3>输入检查</h3><table class="input-check-table"><tbody>${
+        rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join("")
+      }</tbody></table></div>`;
+    }
+
+    function renderWarnings(pack, normalization, explainResponse) {
+      const warnings = [
+        ...asArray(normalization?.warnings),
+        ...asArray(pack?.quality_warnings),
+        ...asArray(pack?.blocked_reasons),
+        ...(explainResponse?.external_fallback_issue ? [{
+          code: "external_llm_fallback",
+          severity: "warning",
+          message: `${explainResponse.external_fallback_issue.code}: ${explainResponse.external_fallback_issue.detail?.message || ""}`
+        }] : [])
+      ];
+      if (!warnings.length) return "";
+      return `<div class="section"><h3>提示与阻断原因</h3><div class="list">${
+        warnings.map((item) => {
+          const kind = item.severity === "error" ? "err" : "warn";
+          const title = item.code || item.severity || item.reason || "note";
+          const rawMessage = item.message || item.detail?.message || item.reason || JSON.stringify(item.details || item);
+          const message = title === "propagation_compression_lossy"
+            ? `${rawMessage} 当前图传播排名应按探索性结果阅读，不宜直接作为高置信结论。`
+            : rawMessage;
+          return `<div class="item ${kind}"><div class="topline"><span>${escapeHtml(title)}</span>${badge(item.severity || "note", kind)}</div><p>${escapeHtml(message)}</p></div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function recordLabel(row) {
+      const record = row?.record || {};
+      return record.name || record.metabolite || record.compound || record.HMDB || record.ChEBI || record.chebi || record.hmdb || row.query || row.input_id || "record";
+    }
+
+    function bestCandidate(row) {
+      const candidates = asArray(row?.candidates);
+      return candidates.length ? candidates[0] : {};
+    }
+
+    function renderReviewQueue(pack) {
+      const groups = [
+        ["已匹配", asArray(pack?.matched), "matched"],
+        ["扩展候选", asArray(pack?.expanded_candidates), "expanded"],
+        ["歧义待复核", asArray(pack?.ambiguous), "ambiguous"],
+        ["未匹配/无效", asArray(pack?.unmatched), "unmatched"]
+      ].filter(([, rows]) => rows.length);
+      if (!groups.length) return "";
+      return `<div class="section"><h3>实体匹配队列</h3><div class="grid3">${
+        groups.map(([title, rows, type]) => {
+          const kind = type === "matched" ? "ok" : type === "expanded" ? "info" : type === "ambiguous" ? "warn" : "err";
+          const visible = rows.slice(0, 4).map((row) => {
+            const candidate = bestCandidate(row);
+            const label = recordLabel(row);
+            const matchedName = candidate.display_name || row.display_name || row.metabolite_uid || "";
+            const external = candidate.primary_external_id || row.primary_external_id || "";
+            const score = row.top_score ?? candidate.score;
+            const margin = row.top_margin;
+            const detail = [
+              matchedName ? `匹配：${matchedName}` : "",
+              external,
+              score !== undefined ? `score ${scoreText(score)}` : "",
+              margin !== undefined ? `margin ${scoreText(margin)}` : "",
+              row.resolution_status || row.reason || ""
+            ].filter(Boolean).join(" · ");
+            return `<div class="tagline">${escapeHtml(label)}${detail ? ` · ${escapeHtml(detail)}` : ""}</div>`;
+          }).join("");
+          return `<div class="item"><div class="topline"><span>${escapeHtml(title)}</span>${badge(rows.length, kind)}</div>${visible}${rows.length > 4 ? `<div class="tagline">另有 ${rows.length - 4} 条未展开</div>` : ""}</div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function textBlocks(value) {
+      if (!value) return [];
+      if (Array.isArray(value.sections)) return value.sections;
+      if (Array.isArray(value.items)) return value.items;
+      if (Array.isArray(value.suggestions)) return value.suggestions;
+      if (Array.isArray(value)) return value;
+      if (value.text || value.reason || value.suggestion || value.digest || value.claim) return [value];
+      return [];
+    }
+
+    function blockText(block) {
+      return block.text || block.reason || block.suggestion || block.digest || block.claim || block.narrative || "";
+    }
+
+    function renderExplanation(explanation) {
+      const sections = [
+        ["解释摘要", explanation?.narrative_summary],
+        ["证据摘要", explanation?.evidence_digest],
+        ["下一步建议", explanation?.candidate_suggestion],
+        ["问题映射", explanation?.question_to_spec],
+        ["证据不足", explanation?.insufficient_evidence]
+      ];
+      const html = sections.map(([title, value]) => {
+        const blocks = textBlocks(value);
+        if (!blocks.length) return "";
+        return `<div class="section"><h3>${escapeHtml(title)}</h3><div class="list">${
+          blocks.map((block) => {
+            const refs = asArray(block.source_refs);
+            return `<div class="item"><p>${escapeHtml(blockText(block))}</p>${refs.length ? `<div class="tagline">${refs.length} 个来源引用</div>` : ""}</div>`;
+          }).join("")
+        }</div></div>`;
+      }).join("");
+      return html;
+    }
+
+    function renderGuard(explanation) {
+      const issues = asArray(explanation?.guard?.issues);
+      if (!issues.length) return "";
+      return `<div class="section"><h3>安全检查</h3><div class="list">${
+        issues.map((issue) => {
+          const message = issue.detail?.message || issue.message || issue.path || JSON.stringify(issue.detail || issue);
+          return `<div class="item err"><div class="topline"><span>${escapeHtml(issue.code || "guard_issue")}</span>${badge("blocked", "err")}</div><p>${escapeHtml(message)}</p></div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderEvidencePack(pack) {
+      const evidence = pack?.literature_evidence_pack || {};
+      const pmids = asArray(evidence.supported_pmids);
+      const classes = asArray(evidence.support_classes);
+      if (!evidence.support_count && !pmids.length && !classes.length) return "";
+      const evidenceActions = asArray(evidence.evidence_refs).slice(0, 8).map((ref, index) => {
+        const request = evidenceRequestFromRefs([ref]);
+        return renderEvidenceButton(`文献证据 ${index + 1}：${evidenceRefLabel(ref, index)}`, request, `证据 ${index + 1}`);
+      }).filter(Boolean).join("");
+      return `<div class="section"><h3>文献证据包</h3><div class="grid3">
+        <div class="item"><div class="topline"><span>支持关系</span>${badge(evidence.support_count ?? 0, "info")}</div><div class="tagline">去重后的文献支持关系数</div></div>
+        <div class="item"><div class="topline"><span>最高文献概率</span>${badge(scoreText(evidence.max_p_literature), "info")}</div><div class="tagline">来自句级证据聚合</div></div>
+        <div class="item"><div class="topline"><span>支持类别</span>${badge(classes.length || 0, "info")}</div><div class="tagline">${escapeHtml(classes.join(", ") || "暂无")}</div></div>
+      </div>${pmids.length ? `<div class="tagline">PMID：${escapeHtml(pmids.slice(0, 18).join(", "))}${pmids.length > 18 ? " ..." : ""}</div>` : ""}${evidenceActions ? `<div class="evidence-action-row">${evidenceActions}</div>` : ""}</div>`;
+    }
+
+    function renderRanking(title, rows, idKey, note = "") {
+      const visible = asArray(rows).slice(0, 8);
+      if (!visible.length) return "";
+      const maxScore = Math.max(...visible.map((row) => Number(row.score || 0)), 0);
+      return `<div class="section"><h3>${escapeHtml(title)}</h3>${note ? `<div class="tagline">${escapeHtml(note)}</div>` : ""}<div class="list">${
+        visible.map((row, index) => {
+          const name = row.display_name || row.name || row[idKey] || `rank_${index + 1}`;
+          const uid = row.primary_external_id || row[idKey] || "";
+          const score = Number((row.calibrated_confidence ?? row.score) || 0);
+          const refs = [
+            row.confidence_tier ? `confidence ${row.confidence_tier}` : "",
+            row.calibration_status ? `calibration ${row.calibration_status}` : "",
+            row.max_p_literature ? `文献概率 ${scoreText(row.max_p_literature)}` : "",
+            asArray(row.supported_pmids).length ? `PMID ${asArray(row.supported_pmids).slice(0, 3).join(", ")}` : "",
+            asArray(row.support_classes).length ? asArray(row.support_classes).join(", ") : ""
+          ].filter(Boolean).join(" · ");
+          const evidenceButton = renderEvidenceButton(`${title}：${name}`, evidenceRequestForRow(row, idKey), "查看证据");
+          const reportId = registerLocalReport("ranking", `${title}：${name}`, {title, idKey, row});
+          return `<div class="item">
+            <div class="topline"><span>${escapeHtml(row.rank || index + 1)}. ${escapeHtml(name)}</span><span>${scoreText(score)}</span></div>
+            <div class="bar" aria-hidden="true"><span style="--w:${percentWidth(score, maxScore)}%"></span></div>
+            <div class="tagline">${escapeHtml(uid)} ${uid ? "·" : ""} ${traceBadge(row.claim_refs)}${refs ? ` · ${escapeHtml(refs)}` : ""}</div>
+            <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
+          </div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderPaths(pack) {
+      const paths = asArray(pack?.top_explanation_paths).slice(0, 5);
+      if (!paths.length) return "";
+      return `<div class="section"><h3>最短图谱路径（探索性）</h3><div class="tagline">这里展示的是图中代价较低的可追溯路径，不等同于本次输入最核心的生物学结论。</div><div class="list">${
+        paths.map((path, index) => {
+          const label = path.terminal_display_name || path.terminal_node_uid || `path_${index + 1}`;
+          const nodes = asArray(path.node_uids).slice(0, 6).join(" → ");
+          const edgeCount = asArray(path.edge_uids).length;
+          const evidenceButton = renderEvidenceButton(`解释路径：${label}`, evidenceRequestFromRefs(path.evidence_refs, path.terminal_node_uid), "查看路径证据");
+          const reportId = registerLocalReport("path", `解释路径：${label}`, {path, label});
+          return `<div class="item">
+            <div class="topline"><span>${escapeHtml(index + 1)}. ${escapeHtml(label)}</span><span>${scoreText(path.path_confidence)}</span></div>
+            <div class="tagline">${escapeHtml(nodes)}${nodes ? " · " : ""}${edgeCount} 条边 · ${traceBadge(path.claim_refs)}</div>
+            <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
+          </div>`;
+        }).join("")
+      }</div></div>`;
+    }
+
+    function renderPredictions(predictions) {
+      if (!predictions) return "";
+      const drugs = asArray(predictions.drug_rankings);
+      const cells = asArray(predictions.cell_type_rankings);
+      const blocked = asArray(predictions.blocked_reasons);
+      if (!drugs.length && !cells.length && !blocked.length) return "";
+      const drugHtml = drugs.slice(0, 5).map((row) => {
+        const targets = asArray(row.matched_targets).map((target) => target.display_name || target.target_uid).filter(Boolean).join(", ");
+        const parts = [
+          `display_confidence ${row.display_confidence || row.confidence || "low"}`,
+          row.raw_overlay_score !== undefined ? `raw_overlay_score ${scoreText(row.raw_overlay_score)}` : "",
+          row.downgrade_reason ? `downgrade ${row.downgrade_reason}` : "",
+          targets ? `targets ${targets}` : ""
+        ].filter(Boolean).join(" · ");
+        const label = row.drug_name || row.drug_id || "drug";
+        const reportId = registerLocalReport("drug", `药物/靶点线索：${label}`, {row});
+        return `<div class="item"><div class="topline"><span>${escapeHtml(label)}</span><span>${scoreText(row.score)}</span></div><div class="tagline">${escapeHtml(parts)}</div><div class="evidence-action-row"><button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div></div>`;
+      }).join("");
+      const cellHtml = cells.slice(0, 5).map((row) => {
+        const label = row.cell_type_name || row.cell_type_id || "cell context";
+        const reportId = registerLocalReport("cell_context", `细胞/背景线索：${label}`, {row});
+        return `<div class="item"><div class="topline"><span>${escapeHtml(label)}</span><span>${scoreText(row.score)}</span></div><div class="tagline">${escapeHtml(row.confidence || "low")}</div><div class="evidence-action-row"><button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div></div>`;
+      }).join("");
+      const blockedHtml = blocked.map((row) => `<div class="item warn"><div class="topline"><span>${escapeHtml(row.code || "blocked")}</span>${badge("提示", "warn")}</div><p>${escapeHtml(row.message || row.reason || "")}</p></div>`).join("");
+      return `<div class="section"><h3>研究优先级提示（假设生成）</h3><div class="tagline">该部分来自 overlay 匹配，只能作为后续验证线索，不表示疗效、因果或临床建议。</div><div class="grid2">
+        <div class="list">${drugHtml || `<div class="item"><div class="tagline">暂无药物/靶点优先级提示</div></div>`}</div>
+        <div class="list">${cellHtml || `<div class="item"><div class="tagline">暂无细胞或背景优先级提示</div></div>`}</div>
+      </div>${blockedHtml ? `<div class="list" style="margin-top:9px">${blockedHtml}</div>` : ""}<div class="tagline">该部分是研究优先级 overlay，不是临床用药建议。</div></div>`;
+    }
+
+    function renderRaw(data) {
+      return `<div class="section"><details class="raw-details"><summary>原始 JSON</summary><pre class="raw">${escapeHtml(JSON.stringify(data, null, 2))}</pre></details></div>`;
+    }
+
+    function normalizedAnalysisPack(data) {
+      const pack = data?.analysis_pack || {};
+      if (data?.analysis_features && !pack.analysis_features) pack.analysis_features = data.analysis_features;
+      if (data?.precheck && !pack.precheck) pack.precheck = data.precheck;
+      return pack;
+    }
+
+    function analysisFeatureRows(data) {
+      const pack = normalizedAnalysisPack(data);
+      const direct = asArray(data?.analysis_features?.matched || pack?.analysis_features?.matched);
+      if (direct.length) return direct;
+      return asArray(pack?.expanded_candidates).map((row) => {
+        const candidate = row?.expanded_candidate || {};
+        const best = bestCandidate(row);
+        return {
+          input_name: recordLabel(row),
+          display_name: best.display_name || best.name || candidate.candidate_label || candidate.representative_name || candidate.name || recordLabel(row),
+          seed_class: candidate.seed_class,
+          seed_track: candidate.track,
+          ratio_component: candidate.ratio_component,
+          ratio_trait: candidate.ratio_trait,
+          class_seed: candidate.class_seed,
+          identity_cluster: candidate.identity_cluster,
+          ratio_effect_semantics: candidate.ratio_trait?.interpretation_boundary,
+          identity_effect_semantics: candidate.identity_cluster?.allowed_claim_level
+        };
+      });
+    }
+
+    function semanticSeedCounts(data, pack) {
+      const features = analysisFeatureRows(data);
+      const precheck = data?.precheck || pack?.precheck || {};
+      const summary = pack?.input_summary || {};
+      const expanded = pack?.expanded_summary || precheck?.expanded_summary || {};
+      const byClass = expanded.expanded_by_class || {};
+      const seedClasses = data?.analysis_features?.summary?.seed_classes || pack?.analysis_features?.summary?.seed_classes || {};
+      const countBy = (predicate) => features.filter(predicate).length;
+      const strict = Number(expanded.strict_matched_count ?? summary.strict_matched_count ?? summary.matched_count ?? precheck?.summary?.matched ?? seedClasses.strict_identity ?? 0);
+      const ratio = Number(seedClasses.ratio_component ?? byClass.ratio_component ?? countBy((row) => row.seed_class === "ratio_component" || row.ratio_component));
+      const classSeed = Number(seedClasses.class_or_pool ?? byClass.class_or_pool ?? countBy((row) => row.seed_class === "class_or_pool" || row.class_seed));
+      const identityCluster = Number(countBy((row) => row.identity_cluster) || seedClasses.soft_identity || byClass.soft_identity || 0);
+      const unresolved = Number(summary.unresolved_input_count ?? expanded.unresolved_input_count ?? ((precheck?.summary?.unmatched ?? 0) + (precheck?.summary?.invalid ?? 0)));
+      return { strict, ratio, classSeed, identityCluster, unresolved };
+    }
+
+    function renderParsingQualityPanel(data) {
+      const pack = normalizedAnalysisPack(data);
+      const counts = semanticSeedCounts(data, pack);
+      const cards = [
+        ["严格匹配", counts.strict, "近似唯一化合物身份，可作为主证据种子。", "ok"],
+        ["ratio component", counts.ratio, "比值拆成 numerator/denominator 或复合组件，只解释相对平衡。", counts.ratio ? "warn" : "info"],
+        ["class seed", counts.classSeed, "脂质类别、池子或链长约束；默认降级为类别层线索。", counts.classSeed ? "warn" : "info"],
+        ["identity cluster", counts.identityCluster, "多个近似候选保留为候选集合，不强行唯一化。", counts.identityCluster ? "warn" : "info"],
+        ["未匹配", counts.unresolved, "未进入图传播，需要补 ID、别名或人工复核。", counts.unresolved ? "err" : "ok"]
+      ];
+      return `<div class="section"><h3>解析质量</h3><div class="quality-grid">${
+        cards.map(([title, value, note, kind]) => `<div class="quality-card"><div class="topline"><span>${escapeHtml(title)}</span>${badge(kind === "ok" ? "高" : kind === "err" ? "复核" : "低权重", kind)}</div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(note)}</span></div>`).join("")
+      }</div></div>`;
+    }
+
+    function semanticTable(title, note, headers, rows) {
+      if (!rows.length) return "";
+      return `<div class="section"><h3>${escapeHtml(title)}</h3>${note ? `<div class="tagline">${escapeHtml(note)}</div>` : ""}<div class="table-scroll"><table class="semantic-table"><thead><tr>${
+        headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")
+      }</tr></thead><tbody>${
+        rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")
+      }</tbody></table></div></div>`;
+    }
+
+    function renderSemanticResolutionTables(data) {
+      const rows = analysisFeatureRows(data);
+      const ratioRows = rows
+        .filter((row) => row.ratio_component || row.ratio_trait)
+        .slice(0, 80)
+        .map((row) => {
+          const ratio = row.ratio_trait || {};
+          const component = row.ratio_component || {};
+          const role = component.role || "component";
+          return [
+            ratio.label || row.input_name || "",
+            row.display_name || component.name || "",
+            role,
+            ratio.dual_component_ratio === false ? "multi-component" : (role === "numerator" || role === "denominator" ? "dual ratio" : "component"),
+            component.signed_ratio_direction || ratio.ratio_direction || row.direction || "",
+            ratio.interpretation_boundary || row.ratio_effect_semantics || "Ratio only constrains relative balance; component abundance needs separate evidence."
+          ];
+        });
+      const classRows = rows
+        .filter((row) => row.class_seed)
+        .slice(0, 80)
+        .map((row) => {
+          const seed = row.class_seed || {};
+          return [
+            row.input_name || seed.label || "",
+            row.display_name || seed.candidate_label || "",
+            asArray(seed.class_ids).join(", "),
+            asArray(seed.chain_constraints).join(", "),
+            seed.allowed_claim_level || "",
+            seed.interpretation_boundary || "Class or pool seeds support class/pathway interpretation, not unique structural identity."
+          ];
+        });
+      const identityRows = rows
+        .filter((row) => row.identity_cluster)
+        .slice(0, 80)
+        .map((row) => {
+          const cluster = row.identity_cluster || {};
+          return [
+            row.input_name || "",
+            row.display_name || cluster.representative_name || "",
+            cluster.cluster_basis || "",
+            cluster.candidate_count ?? asArray(cluster.candidate_names).length,
+            asArray(cluster.candidate_names).join(" | "),
+            cluster.interpretation_boundary || row.identity_effect_semantics || "Use as identity cluster or consensus-only signal until manually reviewed."
+          ];
+        });
+      return [
+        semanticTable(
+          "ratio component 专表",
+          "双组分比值显示 numerator/denominator；多组分比值保留为 undirected composite。",
+          ["原始 trait", "候选/组件", "numerator/denominator", "比值结构", "组件方向", "解释边界"],
+          ratioRows
+        ),
+        semanticTable(
+          "class seed 专表",
+          "类别、池子和链长/异构体描述按低权重类别线索进入分析。",
+          ["原始 trait", "候选", "类别约束", "链长/结构约束", "允许表述层级", "解释边界"],
+          classRows
+        ),
+        semanticTable(
+          "identity cluster 专表",
+          "软身份候选按共享 ID 或 InChIKey connectivity 聚类，保留候选集合。",
+          ["原始 trait", "代表候选", "聚类依据", "候选数", "候选集合", "解释边界"],
+          identityRows
+        )
+      ].filter(Boolean).join("");
+    }
+
+    function renderResponse(data) {
+      lastResponse = data;
+      evidenceRequests = {};
+      localReportRequests = {};
+      hideEvidencePanel();
+      if (data?.error) {
+        setStatus(`请求失败：${data.error} ${data.message || ""}`, "err");
+        results.innerHTML = renderRaw(data);
+        return;
+      }
+      const pack = normalizedAnalysisPack(data);
+      const explanation = data.explanation || {};
+      const status = data.status || (data.analysis_pack ? "ok" : "unknown");
+      const guardPassed = data.explain_response?.guard_passed;
+      const fallbackIssue = data.explain_response?.external_fallback_issue;
+      const statusKind = status === "ok" ? "ok" : status === "needs_records" ? "warn" : "warn";
+      const guardText = guardPassed === false ? "，安全检查未通过" : guardPassed === true ? "，安全检查通过" : "";
+      const fallbackText = fallbackIssue ? "；外部 LLM 调用失败，已回落到本地解释" : "";
+      setStatus(status === "ok" ? `完成${guardText}${fallbackText}` : `状态：${status}${guardText}${fallbackText}`, fallbackIssue ? "warn" : statusKind);
+      if (status === "ok") cacheGlobalReport(data);
+      const sections = [
+        renderParsingQualityPanel(data),
+        renderSemanticResolutionTables(data),
+        renderDatabaseAccuracy(pack),
+        renderInterpretationReport(data.interpretation_report || pack.interpretation_report),
+        renderPredictionModelSummary(pack),
+        renderMetrics(pack, data.input_normalization),
+        renderMetabolicThemes(pack),
+        renderContextMismatch(pack),
+        renderLowConfidenceAppendix(pack, data.predictions),
+        renderWarnings(pack, data.input_normalization, data.explain_response),
+        renderReviewQueue(pack),
+        renderConfidenceGuide(data),
+        renderExplanation(explanation),
+        renderGuard(explanation),
+        renderEvidencePack(pack),
+        renderEvidenceMap(pack, data.predictions),
+        renderRanking("通路证据（支持层）", pack.pathway_rankings, "pathway_uid", "具体 Reactome/WikiPathways 条目只作为主题预测的 supporting evidence；请优先阅读上方代谢主题层。"),
+        renderRanking("靶点排序（假设生成）", pack.target_rankings, "target_uid", "这是代谢物到靶点的图谱/文献关联排序，不代表已验证调控关系。"),
+        renderRanking("疾病/表型文献关联（假设生成）", pack.disease_rankings, "disease_uid", "这里更接近癌种/表型的文献与图谱关联，不应解读为疾病诊断或预测。"),
+        renderPaths(pack),
+        renderPredictions(data.predictions),
+        renderExportActions(),
+        renderRaw(data)
+      ].filter(Boolean).join("");
+      results.innerHTML = sections || `<div class="empty-state">没有可展示的分析内容，请检查输入格式。</div>`;
+    }
+
+    async function loadRelease() {
+      try {
+        const res = await fetch("/releases");
+        const data = await res.json();
+        const release = data.release || {};
+        const active = asArray(data.releases).find((item) => item.active) || {};
+        const counts = [
+          active.node_count ? `${active.node_count.toLocaleString()} nodes` : "",
+          active.edge_count ? `${active.edge_count.toLocaleString()} edges` : ""
+        ].filter(Boolean).join(" · ");
+        el("release").textContent = `release: ${release.release_id || "unknown"} · config: ${release.config_hash || "n/a"}${counts ? ` · ${counts}` : ""}`;
+      } catch {
+        el("release").textContent = "release: unavailable";
+      }
+    }
+
+    async function loadLlmStatus() {
+      try {
+        const res = await fetch("/llm/status");
+        const data = await res.json();
+        const llm = data.llm || {};
+        const config = llm.config || {};
+        const issue = asArray(llm.issues)[0];
+        const text = llm.ready
+          ? `服务级外部 LLM 已启用：${config.model || "未命名模型"} · ${config.endpoint || ""}`
+          : `服务级外部 LLM 未就绪：${issue?.code || "not_ready"}。可填写下方一次性配置后直接分析。`;
+        el("llm-status").textContent = text;
+      } catch {
+        el("llm-status").textContent = "无法读取服务级外部 LLM 状态；仍可填写一次性配置尝试。";
+      }
+    }
+
+    function parseContextText() {
+      const contextText = el("context").value.trim();
+      if (!contextText) return null;
+      try {
+        return JSON.parse(contextText);
+      } catch {
+        return { context_terms: contextText };
+      }
+    }
+
+    function collectLlmConfig(options = {}) {
+      const requireExternalBackend = options.requireExternalBackend !== false;
+      const backend = el("backend").value;
+      if (requireExternalBackend && !backend.startsWith("external")) return null;
+      const endpoint = el("llm-endpoint").value.trim();
+      const model = el("llm-model").value.trim();
+      const apiKey = el("llm-api-key").value;
+      const maxOutputTokens = intValue("llm-max-output-tokens", 1600);
+      const timeoutSeconds = intValue("llm-timeout-seconds", 120);
+      const proxyUrl = el("llm-proxy-url").value.trim();
+      if (!endpoint && !model && !apiKey && !proxyUrl) return null;
+      return {
+        provider: "openai_compatible",
+        endpoint,
+        model,
+        api_key: apiKey,
+        max_output_tokens: maxOutputTokens,
+        timeout_seconds: timeoutSeconds,
+        proxy_url: proxyUrl
+      };
+    }
+
+    function renderLlmTestResult(data) {
+      const box = el("llm-test-result");
+      const test = data.llm_test || {};
+      const kind = data.status === "ok" ? "ok" : data.status === "blocked" ? "warn" : "err";
+      const config = test.config || {};
+      const facts = [
+        test.code ? `代码：${test.code}` : "",
+        test.http_status ? `HTTP：${test.http_status}` : "",
+        test.elapsed_ms !== undefined ? `耗时：${test.elapsed_ms} ms` : "",
+        config.model ? `模型：${config.model}` : "",
+        config.endpoint ? `接口：${config.endpoint}` : "",
+        config.proxy_configured ? `代理：${config.proxy_url || "已配置"}` : "代理：未配置"
+      ].filter(Boolean).join(" · ");
+      const preview = test.body_preview || test.response_preview || "";
+      box.hidden = false;
+      box.className = `status ${kind}`;
+      box.innerHTML = `<strong>${escapeHtml(test.diagnostic || test.message || "LLM 自检完成")}</strong><br>${escapeHtml(facts)}${preview ? `<br>响应预览：${escapeHtml(preview)}` : ""}`;
+    }
+
+    async function testLlmConnection() {
+      const button = el("llm-test");
+      const config = collectLlmConfig({ requireExternalBackend: false });
+      button.disabled = true;
+      el("llm-test-result").hidden = false;
+      el("llm-test-result").className = "status warn";
+      el("llm-test-result").textContent = "正在测试外部 LLM 连接，会发送一个很小的 OK 请求。";
+      try {
+        const response = await fetch("/llm/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ llm_config: config })
+        });
+        const data = await response.json();
+        renderLlmTestResult(data);
+      } catch (error) {
+        el("llm-test-result").className = "status err";
+        el("llm-test-result").textContent = `LLM 自检请求失败：${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function downloadText(filename, text, mimeType) {
+      const blob = new Blob([text], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function explanationLines(explanation) {
+      const sections = [
+        ["解释摘要", explanation?.narrative_summary],
+        ["证据摘要", explanation?.evidence_digest],
+        ["下一步建议", explanation?.candidate_suggestion],
+        ["问题映射", explanation?.question_to_spec],
+        ["证据不足", explanation?.insufficient_evidence]
+      ];
+      const lines = [];
+      sections.forEach(([title, value]) => {
+        const blocks = textBlocks(value);
+        if (!blocks.length) return;
+        lines.push(`### ${title}`);
+        blocks.forEach((block, index) => {
+          const refs = asArray(block.source_refs);
+          lines.push(`- ${index + 1}. ${blockText(block)}${refs.length ? `（来源引用 ${refs.length} 个）` : ""}`);
+        });
+        lines.push("");
+      });
+      return lines;
+    }
+
+    function buildMarkdownReport(data, options = exportOptions()) {
+      const pack = data.analysis_pack || {};
+      const interpretation = data.interpretation_report || pack.interpretation_report || {};
+      const summary = pack.input_summary || {};
+      const model = pack.prediction_model || {};
+      const assessment = model.assessment || {};
+      const reportThemeNames = [
+        ...asArray(model.high_confidence_metabolic_themes),
+        ...asArray(model.medium_confidence_metabolic_themes)
+      ].slice(0, 5).map((row) => row.display_name || row.theme_id).filter(Boolean);
+      const geneticExposureCount = summary.genetic_exposure_available_count ?? summary.genetic_exposure_count ?? asArray(pack.genetic_exposures).length;
+      const lines = [
+        "# 代谢组知识图谱分析报告",
+        "",
+        `问题：${data.question || ""}`,
+        `生成时间：${new Date().toLocaleString()}`,
+        "",
+        "## 解释边界",
+        "- 外部 LLM 只负责文字改写，不修改实体匹配、图谱传播、评分或证据。",
+        "- 靶点、疾病和药物优先级属于假设生成，不是临床建议。",
+        ""
+      ];
+      lines.push(
+        "## 研究可用性",
+        `- 整体口径：${assessment.grade || "NA"} ${assessment.level || ""}`,
+        `- 遗传暴露：${geneticExposureCount}/${summary.input_count ?? data.input_normalization?.record_count ?? 0} GCST exposures available for genetic analysis`,
+        `- 输入支撑：${summary.analysis_seed_input_count ?? pack.expanded_summary?.analysis_seed_input_count ?? 0}/${summary.input_count ?? data.input_normalization?.record_count ?? 0} inputs；strict ${summary.strict_matched_count ?? summary.matched_count ?? 0}，expanded ${summary.expanded_candidate_input_count ?? summary.expanded_input_count ?? 0}，unresolved ${summary.unresolved_input_count ?? pack.expanded_summary?.unresolved_input_count ?? 0}`,
+        `- 主报告主题：${reportThemeNames.join("、") || "当前不做强结论，保留为候选机制。"}`,
+        "- 靶点、疾病和药物条目默认作为探索性附录，不作为主结论。",
+        ""
+      );
+      if (asArray(interpretation.executive_summary).length) {
+        lines.push("## 核心结论");
+        asArray(interpretation.executive_summary).slice(0, 10).forEach((row, index) => {
+          lines.push(
+            `- ${index + 1}. ${row.headline || "核心结论"}（${row.confidence_tier || "exploratory"}；输入支持 ${row.supporting_input_count ?? 0}；证据 ${row.evidence_ref_count ?? 0}）`,
+            `  边界：${row.boundary || "研究解释，不作为确定因果。"}`
+          );
+        });
+        lines.push("");
+      }
+      if (asArray(interpretation.conclusion_chains).length) {
+        lines.push("## 结论链路");
+        asArray(interpretation.conclusion_chains).slice(0, 10).forEach((claim, index) => {
+          lines.push(
+            `### ${index + 1}. ${claim.headline || claim.claim_id}`,
+            `- 依据：${claim.basis || ""}`,
+            `- 关系链：${asArray(claim.relation_chain).join(" -> ")}`,
+            `- 可能机制：${claim.possible_mechanism || ""}`,
+            `- 解释边界：${claim.boundary || ""}`,
+            `- 加分因素：${asArray(claim.confidence_reasons?.positive_factors).join("；") || "暂无"}`,
+            `- 降级因素：${asArray(claim.confidence_reasons?.downgrade_factors).join("；") || "暂无"}`,
+            ""
+          );
+        });
+      }
+      if (options.original) {
+        lines.push(
+          "## 输入检查",
+          `- 输入记录：${data.input_normalization?.record_count ?? summary.input_count ?? 0}`,
+          `- Genetic exposures：${geneticExposureCount}`,
+          `- Strict matched：${summary.strict_matched_count ?? summary.matched_count ?? 0}`,
+          `- Expanded candidates：${summary.expanded_candidate_input_count ?? summary.expanded_input_count ?? pack.expanded_summary?.expanded_candidate_input_count ?? pack.expanded_summary?.expanded_input_count ?? 0}`,
+          `- Expanded entity candidates：${summary.expanded_candidate_count ?? pack.expanded_summary?.expanded_candidate_count ?? asArray(pack.expanded_candidates).length}`,
+          `- Analysis seeds used：${summary.analysis_seed_input_count ?? pack.expanded_summary?.analysis_seed_input_count ?? 0} inputs / ${summary.analysis_seed_feature_count ?? pack.expanded_summary?.analysis_seed_feature_count ?? 0} weighted features`,
+          `- Weighted seed mass：${scoreText(summary.weighted_seed_mass ?? pack.expanded_summary?.weighted_seed_mass ?? 0)}`,
+          `- 待复核：${summary.ambiguous_count ?? 0}`,
+          `- Unresolved：${summary.unresolved_input_count ?? pack.expanded_summary?.unresolved_input_count ?? ((summary.unmatched_count ?? 0) + (summary.invalid_count ?? 0))}`,
+          "",
+          "## 原始输入记录",
+          ...asArray(data.records).slice(0, 200).map((row, index) => `- ${index + 1}. ${JSON.stringify(row)}`),
+          ""
+        );
+      }
+      if (options.explanation) {
+        lines.push("## 解释", ...explanationLines(data.explanation || {}));
+      }
+      if (options.evidence) {
+        const literature = pack.literature_evidence_pack || {};
+        lines.push(
+          "## 证据摘要",
+          `- 文献支持关系：${literature.support_count ?? 0}`,
+          `- 支持类别：${asArray(literature.support_classes).join(", ") || "暂无"}`,
+          `- PMID：${asArray(literature.supported_pmids).slice(0, 50).join(", ") || "暂无"}`,
+          ""
+        );
+      }
+      if (options.rankings) {
+        lines.push(
+          "## 高置信代谢主题",
+          ...asArray(model.high_confidence_metabolic_themes).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.theme_id}：${row.confidence_tier}，coverage ${row.coverage?.related_input_count ?? 0}`),
+          "",
+          "## 中置信代谢主题",
+          ...asArray(model.medium_confidence_metabolic_themes).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.theme_id}：${row.confidence_tier}，coverage ${row.coverage?.related_input_count ?? 0}`),
+          "",
+          "## 被降级但有输入覆盖的主题",
+          ...asArray(model.degraded_covered_metabolic_themes).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.theme_id}：${row.coverage?.downgrade_reason || "downgraded"}，related ${row.coverage?.related_input_count ?? 0}`),
+          "",
+          "## context_mismatch 结果",
+          ...asArray(model.context_mismatch).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.result_uid}：${asArray(row.context_mismatch_groups).join(", ") || row.downgrade_reason}`),
+          "",
+          "## 主要通路（映射层）",
+          ...asArray(pack.pathway_rankings).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.pathway_uid}：${scoreText(row.score)}${row.primary_external_id ? `，${row.primary_external_id}` : ""}`),
+          "",
+          "## 靶点假设",
+          ...asArray(pack.target_rankings).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.target_uid}：${scoreText(row.score)}${row.max_p_literature ? `，文献概率 ${scoreText(row.max_p_literature)}` : ""}`),
+          "",
+          "## 疾病/表型文献关联",
+          ...asArray(pack.disease_rankings).slice(0, 20).map((row, index) => `- ${index + 1}. ${row.display_name || row.disease_uid}：${scoreText(row.score)}${row.max_p_literature ? `，文献概率 ${scoreText(row.max_p_literature)}` : ""}`),
+          ""
+        );
+      }
+      if (options.predictions) {
+        const predictions = data.predictions || {};
+        lines.push(
+          "## 研究优先级 overlay",
+          ...asArray(predictions.drug_rankings).slice(0, 20).map((row, index) => `- 药物 ${index + 1}. ${row.drug_name || row.drug_id}：${row.display_confidence || row.confidence || "low"}，score ${scoreText(row.score)}`),
+          ...asArray(predictions.cell_type_rankings).slice(0, 20).map((row, index) => `- 背景 ${index + 1}. ${row.cell_type_name || row.cell_type_id}：${row.confidence || "low"}，score ${scoreText(row.score)}`),
+          ""
+        );
+      }
+      if (options.raw) {
+        lines.push("## 完整原始 JSON", "```json", JSON.stringify(data, null, 2), "```", "");
+      }
+      return lines.join("\n");
+    }
+
+    function buildCsvReport(data, options = exportOptions()) {
+      const pack = data.analysis_pack || {};
+      const rows = [["section", "type", "rank", "name", "id", "score", "confidence", "notes"]];
+      if (options.original) {
+        asArray(data.records).forEach((row, index) => rows.push(["original_input", "record", index + 1, recordLabel({record: row}), "", "", "", JSON.stringify(row)]));
+      }
+      if (options.rankings) {
+        [
+          ["pathway", pack.pathway_rankings, "pathway_uid"],
+          ["target", pack.target_rankings, "target_uid"],
+          ["disease", pack.disease_rankings, "disease_uid"]
+        ].forEach(([type, list, idKey]) => {
+          asArray(list).forEach((row, index) => rows.push([
+            "ranking",
+            type,
+            row.rank || index + 1,
+            row.display_name || row.name || "",
+            row.primary_external_id || row[idKey] || "",
+            row.calibrated_confidence ?? row.score ?? "",
+            row.confidence_tier || "",
+            row.boundary || asArray(row.supported_pmids).slice(0, 5).join(";")
+          ]));
+        });
+      }
+      if (options.predictions) {
+        asArray(data.predictions?.drug_rankings).forEach((row, index) => rows.push(["prediction", "drug", index + 1, row.drug_name || "", row.drug_id || "", row.score ?? "", row.display_confidence || row.confidence || "", row.boundary || row.downgrade_reason || ""]));
+        asArray(data.predictions?.cell_type_rankings).forEach((row, index) => rows.push(["prediction", "cell_context", index + 1, row.cell_type_name || "", row.cell_type_id || "", row.score ?? "", row.confidence || "", row.boundary || ""]));
+      }
+      return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    }
+
+    function buildLocalMarkdownReport(entry) {
+      const payload = entry.payload || {};
+      const row = payload.row || payload.path || {};
+      const title = entry.title || "局部报告";
+      const lines = [
+        `# ${title}`,
+        "",
+        `报告类型：${entry.kind}`,
+        `生成时间：${new Date().toLocaleString()}`,
+        "",
+        "## 局部结论",
+        `- 名称：${row.display_name || row.name || payload.label || row.drug_name || row.cell_type_name || row.terminal_display_name || "未命名"}`,
+        `- 分数/置信度：${scoreText(row.calibrated_confidence ?? row.score ?? row.path_confidence ?? 0)}`,
+        `- 置信层级：${row.confidence_tier || row.display_confidence || row.confidence || "未提供"}`,
+        `- 边界：${row.boundary || row.appendix_reason || row.downgrade_reason || "该条目仅作为研究解释或候选假设阅读。"}`,
+        "",
+        "## 证据线索",
+        `- PMID：${asArray(row.supported_pmids).slice(0, 20).join(", ") || "暂无"}`,
+        `- 支持类别：${asArray(row.support_classes).join(", ") || "暂无"}`,
+        `- 证据引用数：${asArray(row.evidence_refs).length}`,
+        `- 可追溯：${row.claim_refs?.traceability_passed ? "是" : "需要复核"}`,
+        "",
+        "## 原始局部对象",
+        "```json",
+        JSON.stringify(row, null, 2),
+        "```"
+      ];
+      return lines.join("\n");
+    }
+
+    function cacheReport(kind, title, markdown, data = null) {
+      const id = `report_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      reportCache.unshift({
+        id,
+        kind,
+        title,
+        markdown,
+        data,
+        created_at: new Date().toLocaleString()
+      });
+      reportCache = reportCache.slice(0, 12);
+      return id;
+    }
+
+    function cacheGlobalReport(data) {
+      const title = `全局报告：${data.question || "代谢组分析"}`;
+      const markdown = buildMarkdownReport(data, {
+        original: true,
+        explanation: true,
+        evidence: true,
+        rankings: true,
+        predictions: true,
+        raw: false
+      });
+      cacheReport("global", title, markdown, data);
+    }
+
+    function cachedReport(id) {
+      return reportCache.find((report) => report.id === id);
+    }
+
+    function intValue(id, fallback) {
+      const value = Number.parseInt(el(id).value, 10);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function tableTextStats(value) {
+      const text = String(value || "");
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      return {
+        lineCount: lines.length,
+        dataRows: Math.max(0, lines.length - 1),
+        charCount: text.length
+      };
+    }
+
+    function tableTextStatsLabel(value) {
+      const stats = tableTextStats(value);
+      if (!stats.lineCount) return "no table rows detected";
+      return `${stats.dataRows} data rows (${stats.lineCount} lines including header, ${stats.charCount.toLocaleString()} chars)`;
+    }
+
+    function currentPrecheckSignature() {
+      return `${selectedInputMode()}\n${el("table-text").value}`;
+    }
+
+    function updateInputModeHint() {
+      const config = inputModeConfig();
+      const hint = el("input-mode-hint");
+      if (hint) hint.textContent = config.hint;
+    }
+
+    function resetPrecheck() {
+      lastPrecheck = null;
+      lastPrecheckSignature = "";
+      const panel = el("precheck-panel");
+      if (panel) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+      }
+    }
+
+    function precheckWarningCodes(precheck) {
+      return asArray(precheck?.input_normalization?.warnings)
+        .map((warning) => warning.code || warning.severity || warning.message)
+        .filter(Boolean);
+    }
+
+    function precheckSummaryText(precheck) {
+      const summary = precheck?.summary || {};
+      return [
+        `mode ${precheck?.analysis_mode || "metabolite_table"}`,
+        `inputs ${precheck?.input_count ?? 0}`,
+        `matched ${summary.matched ?? 0}`,
+        `ambiguous ${summary.ambiguous ?? 0}`,
+        `unmatched ${summary.unmatched ?? 0}`,
+        `invalid ${summary.invalid ?? 0}`
+      ].join("; ");
+    }
+
+    function renderPrecheckPanel(precheck) {
+      const panel = el("precheck-panel");
+      const expanded = precheck?.expanded_summary || {};
+      const warnings = precheckWarningCodes(precheck);
+      const rows = [
+        ["analysis_mode", precheck?.analysis_mode || "metabolite_table"],
+        ["input_count", precheck?.input_count ?? 0],
+        ["matched", precheck?.summary?.matched ?? 0],
+        ["ambiguous", precheck?.summary?.ambiguous ?? 0],
+        ["unmatched", precheck?.summary?.unmatched ?? 0],
+        ["invalid", precheck?.summary?.invalid ?? 0],
+        ["analysis_seed_inputs", expanded.analysis_seed_input_count ?? 0],
+        ["expanded_candidates", expanded.expanded_candidate_count ?? 0],
+        ["weighted_seed_mass", scoreText(expanded.weighted_seed_mass ?? 0)]
+      ];
+      panel.hidden = false;
+      panel.className = warnings.length ? "status warn" : "status ok";
+      panel.innerHTML = `<strong>Precheck complete</strong><br><table class="input-check-table"><tbody>${
+        rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join("")
+      }</tbody></table>${warnings.length ? `<div class="tagline">warnings: ${escapeHtml(warnings.join(", "))}</div>` : ""}`;
+    }
+
+    function buildAnalysisPayload() {
+      const mode = selectedInputMode();
+      const payload = {
+        input_mode: mode,
+        table_text: el("table-text").value,
+        question: el("question").value,
+        context: parseContextText(),
+        context_mode: el("context-mode").value,
+        adapter_backend: el("backend").value,
+        max_paths: intValue("max-paths", 25),
+        max_hops: intValue("max-hops", 4),
+        evidence_limit: intValue("evidence-limit", 25),
+        subgraph_max_hops: intValue("subgraph-hops", 1),
+        llm_config: collectLlmConfig()
+      };
+      if (mode !== "metabolite_table") {
+        payload.q_threshold = 0.05;
+        payload.min_abs_effect = 0.0;
+        payload.top_per_group = mode === "trait_score_differential" ? 80 : 120;
+        payload.max_records = mode === "trait_score_differential" ? 120 : 300;
+      }
+      return payload;
+    }
+
+    async function runPrecheck(options = {}) {
+      const tableText = el("table-text").value;
+      if (!tableText.trim()) {
+        setStatus("Add table text or upload a file before precheck.", "warn");
+        throw new Error("missing input table");
+      }
+      const signature = currentPrecheckSignature();
+      if (!options.force && lastPrecheck && lastPrecheckSignature === signature) return lastPrecheck;
+      const button = el("precheck");
+      if (button) button.disabled = true;
+      const mode = selectedInputMode();
+      if (!options.silent) setStatus(`Prechecking ${inputModeConfig().label}: ${tableTextStatsLabel(tableText)}`, "warn");
+      try {
+        const response = await fetch(mode === "metabolite_table" ? "/precheck/metabolites" : "/analyze/differential-table", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mode === "metabolite_table" ? { table_text: tableText } : {
+            ...buildAnalysisPayload(),
+            max_paths: 8,
+            max_records: mode === "trait_score_differential" ? 80 : 160
+          })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        lastPrecheck = data.precheck || data;
+        if (data.analysis_pack?.expanded_summary && !lastPrecheck.expanded_summary) {
+          lastPrecheck = {...lastPrecheck, expanded_summary: data.analysis_pack.expanded_summary};
+        }
+        lastPrecheckSignature = signature;
+        renderPrecheckPanel(lastPrecheck);
+        if (!options.silent) setStatus(`Precheck: ${precheckSummaryText(lastPrecheck)}`, precheckWarningCodes(lastPrecheck).length ? "warn" : "ok");
+        return lastPrecheck;
+      } catch (error) {
+        resetPrecheck();
+        setStatus(`Precheck failed: ${error.message}`, "err");
+        throw error;
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    function loadFlowTestFixture() {
+      el("table-text").value = [
+        "metabolite,log2FC,pvalue,padj,direction",
+        "Glucose,1.25,0.001,0.005,up",
+        "Lactate,1.41,0.0008,0.004,up",
+        "Succinate,0.88,0.012,0.035,up",
+        "Glutamine,-0.82,0.018,0.042,down",
+        "Citrate,-0.71,0.036,0.078,down",
+        "Carnitine,0.64,0.041,0.09,up"
+      ].join("\n");
+      el("question").value = "流程测试：请解释这组肿瘤代谢差异输入的主要主题、证据边界和需要复核的条目。";
+      el("context").value = JSON.stringify({
+        cancer_type: "glioma",
+        tissue: "brain",
+        cell_type: "glial tumor cell",
+        sample_type: "tumor tissue",
+        purpose: "workflow_test"
+      });
+      el("context-mode").value = "soft";
+      el("backend").value = "local";
+      el("input-mode").value = "differential_table";
+      updateInputModeHint();
+      el("max-paths").value = "25";
+      el("max-hops").value = "4";
+      el("evidence-limit").value = "25";
+      el("subgraph-hops").value = "1";
+      resetPrecheck();
+      setStatus("已载入流程测试样例，正在运行完整分析链路。", "warn");
+    }
+
+    el("file").addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      el("table-text").value = await file.text();
+      resetPrecheck();
+      setStatus(`Loaded file: ${file.name}; ${tableTextStatsLabel(el("table-text").value)}`, "ok");
+    });
+
+    el("table-text").addEventListener("input", resetPrecheck);
+
+    el("input-mode").addEventListener("change", () => {
+      updateInputModeHint();
+      resetPrecheck();
+      setStatus(`已切换输入模式：${inputModeConfig().label}`, "ok");
+    });
+
+    el("precheck").addEventListener("click", () => {
+      runPrecheck({ force: true }).catch(() => {});
+    });
+
+    document.querySelectorAll("[data-llm-endpoint]").forEach((button) => {
+      button.addEventListener("click", () => {
+        el("llm-endpoint").value = button.getAttribute("data-llm-endpoint") || "";
+        const model = button.getAttribute("data-llm-model") || "";
+        if (model) el("llm-model").value = model;
+        el("llm-config-guide").open = true;
+      });
+    });
+
+    el("llm-test").addEventListener("click", testLlmConnection);
+
+    el("backend").addEventListener("change", () => {
+      if (el("backend").value.startsWith("external")) {
+        el("llm-config-guide").open = true;
+      }
+    });
+
+    el("clear").addEventListener("click", () => {
+      results.innerHTML = `<div class="empty-state">结果已清空，可以继续输入新的代谢物表。已缓存报告仍保留在下方。</div>${renderExportActions()}`;
+      lastResponse = null;
+      resetPrecheck();
+      graphNodeDetails = {};
+      evidenceRequests = {};
+      localReportRequests = {};
+      hideEvidencePanel();
+      setStatus("等待输入");
+    });
+
+    el("flow-test").addEventListener("click", () => {
+      loadFlowTestFixture();
+      el("chat-form").requestSubmit();
+    });
+
+    function shouldAutoRunFlowTest() {
+      const params = new URLSearchParams(window.location.search);
+      const path = window.location.pathname.replace(/\/$/, "") || "/";
+      return path === "/flow-test" || params.get("flow_test") === "1" || params.get("workflow_test") === "1";
+    }
+
+    function autoRunFlowTestIfRequested() {
+      if (!shouldAutoRunFlowTest()) return;
+      window.setTimeout(() => {
+        loadFlowTestFixture();
+        el("chat-form").requestSubmit();
+      }, 0);
+    }
+
+    results.addEventListener("click", (event) => {
+      const evidenceButton = event.target.closest("[data-evidence-request]");
+      if (evidenceButton) {
+        openEvidenceRequest(evidenceButton.getAttribute("data-evidence-request"));
+        return;
+      }
+      const graphButton = event.target.closest("[data-graph-node]");
+      if (graphButton) {
+        const detail = graphNodeDetails[graphButton.getAttribute("data-graph-node")];
+        const box = el("graph-detail");
+        if (detail && box) {
+          const rows = asArray(detail.detailRows).map(([label, value]) => `<div><strong>${escapeHtml(label)}：</strong>${escapeHtml(value)}</div>`).join("");
+          const action = renderEvidenceButton(`图谱节点：${detail.title}`, detail.evidenceRequest, "查看节点证据");
+          box.innerHTML = `<strong>${escapeHtml(detail.title)}</strong><div class="tagline">${escapeHtml(detail.subtitle || detail.type)}</div>${rows}${action ? `<div class="evidence-action-row">${action}</div>` : ""}`;
+        }
+        return;
+      }
+      const localReportButton = event.target.closest("[data-local-report]");
+      if (localReportButton) {
+        const entry = localReportRequests[localReportButton.getAttribute("data-local-report")];
+        if (entry) {
+          const markdown = buildLocalMarkdownReport(entry);
+          cacheReport("local", entry.title, markdown, entry.payload);
+          refreshReportCacheList();
+          setStatus(`已缓存局部报告：${entry.title}`, "ok");
+        }
+        return;
+      }
+      const viewReport = event.target.closest("[data-report-view]");
+      if (viewReport) {
+        const report = cachedReport(viewReport.getAttribute("data-report-view"));
+        if (report) {
+          showEvidencePanel(report.title, `${report.kind} · ${report.created_at}`, `<pre class="raw">${escapeHtml(report.markdown)}</pre>`);
+        }
+        return;
+      }
+      const mdReport = event.target.closest("[data-report-md]");
+      if (mdReport) {
+        const report = cachedReport(mdReport.getAttribute("data-report-md"));
+        if (report) downloadText(`${report.kind}-metabo-report.md`, report.markdown, "text/markdown;charset=utf-8");
+        return;
+      }
+      const docReport = event.target.closest("[data-report-doc]");
+      if (docReport) {
+        const report = cachedReport(docReport.getAttribute("data-report-doc"));
+        if (report) downloadHtmlAsWord(`${report.kind}-metabo-report.doc`, report.title, report.markdown);
+        return;
+      }
+      const pdfReport = event.target.closest("[data-report-pdf]");
+      if (pdfReport) {
+        const report = cachedReport(pdfReport.getAttribute("data-report-pdf"));
+        if (report) printMarkdownAsPdf(report.title, report.markdown);
+        return;
+      }
+      if (event.target.closest("#export-json") && lastResponse) {
+        const options = exportOptions();
+        const payload = options.raw ? lastResponse : {
+          contract_version: lastResponse.contract_version,
+          status: lastResponse.status,
+          question: lastResponse.question,
+          records: options.original ? lastResponse.records : undefined,
+          input_normalization: options.original ? lastResponse.input_normalization : undefined,
+          explanation: options.explanation ? lastResponse.explanation : undefined,
+          interpretation_report: lastResponse.interpretation_report || lastResponse.analysis_pack?.interpretation_report,
+          analysis_pack: {
+            input_summary: options.original ? lastResponse.analysis_pack?.input_summary : undefined,
+            expanded_summary: options.original ? lastResponse.analysis_pack?.expanded_summary : undefined,
+            four_track_summary: options.original ? lastResponse.analysis_pack?.four_track_summary : undefined,
+            genetic_exposures: options.original ? lastResponse.analysis_pack?.genetic_exposures : undefined,
+            expanded_candidates: options.original ? lastResponse.analysis_pack?.expanded_candidates : undefined,
+            literature_evidence_pack: options.evidence ? lastResponse.analysis_pack?.literature_evidence_pack : undefined,
+            pathway_rankings: options.rankings ? lastResponse.analysis_pack?.pathway_rankings : undefined,
+            target_rankings: options.rankings ? lastResponse.analysis_pack?.target_rankings : undefined,
+            disease_rankings: options.rankings ? lastResponse.analysis_pack?.disease_rankings : undefined,
+            prediction_model: options.rankings ? lastResponse.analysis_pack?.prediction_model : undefined
+          },
+          predictions: options.predictions ? lastResponse.predictions : undefined
+        };
+        downloadText("metabo-analysis-report.json", JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+        return;
+      }
+      if (event.target.closest("#export-md") && lastResponse) {
+        downloadText("metabo-analysis-report.md", buildMarkdownReport(lastResponse), "text/markdown;charset=utf-8");
+        return;
+      }
+      if (event.target.closest("#export-csv") && lastResponse) {
+        downloadText("metabo-analysis-report.csv", buildCsvReport(lastResponse), "text/csv;charset=utf-8");
+        return;
+      }
+      if (event.target.closest("#export-doc") && lastResponse) {
+        downloadHtmlAsWord("metabo-analysis-report.doc", "代谢组知识图谱分析报告", buildMarkdownReport(lastResponse));
+        return;
+      }
+      if (event.target.closest("#export-pdf") && lastResponse) {
+        printMarkdownAsPdf("代谢组知识图谱分析报告", buildMarkdownReport(lastResponse));
+      }
+    });
+
+    el("evidence-close").addEventListener("click", hideEvidencePanel);
+
+    el("chat-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = el("submit");
+      button.disabled = true;
+      setStatus(`Analyzing ${tableTextStatsLabel(el("table-text").value)}; first release load may take tens of seconds`, "warn");
+      setStatus("分析中，首次加载 release 可能需要几十秒", "warn");
+      results.innerHTML = `<div class="empty-state">正在进行实体匹配、图传播和证据汇总。</div>`;
+      setStatus(`Analyzing ${tableTextStatsLabel(el("table-text").value)}; first release load may take tens of seconds`, "warn");
+      const payload = {
+        ...buildAnalysisPayload()
+      };
+      try {
+        if (selectedInputMode() === "metabolite_table") {
+          await runPrecheck({ silent: true });
+        }
+        setStatus(`Analyzing ${tableTextStatsLabel(el("table-text").value)}; first release load may take tens of seconds`, "warn");
+        const response = await fetch(inputModeConfig().endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.precheck) {
+          lastPrecheck = data.precheck;
+          if (data.analysis_pack?.expanded_summary && !lastPrecheck.expanded_summary) {
+            lastPrecheck = {...lastPrecheck, expanded_summary: data.analysis_pack.expanded_summary};
+          }
+          lastPrecheckSignature = currentPrecheckSignature();
+          renderPrecheckPanel(lastPrecheck);
+        }
+        renderResponse(data);
+      } catch (error) {
+        setStatus(`请求失败：${error.message}`, "err");
+        results.innerHTML = `<div class="empty-state">请确认服务已启动，并且浏览器地址是本服务页面。</div>`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    loadRelease();
+    loadLlmStatus();
+    updateInputModeHint();
+    autoRunFlowTestIfRequested();
+  </script>
+</body>
+</html>

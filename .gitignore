@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.part
+.pytest_cache/
+.tmp/
+tmp/
+test_tmp/
+logs/
+*.log
+derby.log
+python_*_probe/
+python_write_probe.txt
+sandbox_write_probe.txt
+
+# Large downloaded/generated data. Keep these outside GitHub; rebuild or
+# distribute release artifacts separately.
+raw_lake/
+manifests/
+normalized_store/
+graph_projection/
+database_accuracy_store/
+compound_match_index/
+literature_evidence/
+pubchem_cid_cache/
+articles_collect/
+learning_runs/
+validation_reports/
+manual_sources/
+ChEBI/
+backups/

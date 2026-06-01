@@ -1,0 +1,134 @@
+{
+  "schema_version": "evidence_precision_filters.v1",
+  "purpose": "Deterministic C3 filters for high-frequency, low-information literature mention surfaces. Filters affect only the evidence overlay lexicon, not the curated graph.",
+  "surface_blocklist": [
+    {
+      "surface": "can",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "English modal verb; broad gene alias creates false co-mentions."
+    },
+    {
+      "surface": "via",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "English preposition; broad gene alias creates false co-mentions."
+    },
+    {
+      "surface": "hcc",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Common hepatocellular carcinoma abbreviation; valid as disease alias, too broad as gene alias."
+    },
+    {
+      "surface": "mass",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Generic measurement word; broad gene alias."
+    },
+    {
+      "surface": "age",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Generic clinical covariate; broad gene alias."
+    },
+    {
+      "surface": "large",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Generic adjective; broad gene alias."
+    },
+    {
+      "surface": "damage",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Generic biology word; broad gene alias."
+    },
+    {
+      "surface": "ros",
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "reason": "Usually reactive oxygen species in oncology/metabolism text; too broad as gene alias."
+    },
+    {
+      "surface": "protein kinase",
+      "entity_types": ["gene", "target", "pathway"],
+      "reason": "Generic protein family phrase, not a specific entity."
+    },
+    {
+      "surface": "kinase",
+      "entity_types": ["gene", "target", "pathway"],
+      "reason": "Generic protein family word, not a specific entity."
+    },
+    {
+      "surface": "proteins",
+      "entity_types": ["metabolite"],
+      "matched_fields": ["synonym"],
+      "reason": "Generic biomolecule class, not a metabolite identity."
+    },
+    {
+      "surface": "mrna",
+      "entity_types": ["metabolite"],
+      "matched_fields": ["synonym"],
+      "reason": "Generic transcript molecule class, not a metabolite identity."
+    },
+    {
+      "surface": "lung",
+      "entity_types": ["disease"],
+      "matched_fields": ["alias"],
+      "reason": "Anatomical site alone is too broad for disease evidence."
+    },
+    {
+      "surface": "tumour",
+      "entity_types": ["disease"],
+      "reason": "Generic oncology word; does not identify a specific disease node."
+    }
+  ],
+  "surface_downweight": [
+    {
+      "surface": "p53",
+      "entity_types": ["gene", "target"],
+      "confidence_multiplier": 0.92,
+      "reason": "High-frequency oncology symbol retained but slightly downweighted."
+    },
+    {
+      "surface": "akt",
+      "entity_types": ["gene", "target"],
+      "confidence_multiplier": 0.92,
+      "reason": "High-frequency kinase family shorthand retained but slightly downweighted."
+    },
+    {
+      "surface": "tnf",
+      "entity_types": ["gene", "target"],
+      "confidence_multiplier": 0.94,
+      "reason": "High-frequency inflammatory symbol retained but slightly downweighted."
+    },
+    {
+      "surface": "myc",
+      "entity_types": ["gene", "target"],
+      "confidence_multiplier": 0.94,
+      "reason": "High-frequency oncogene symbol retained but slightly downweighted."
+    },
+    {
+      "surface": "breast cancer",
+      "entity_types": ["disease"],
+      "matched_fields": ["alias"],
+      "confidence_multiplier": 0.96,
+      "reason": "Common disease phrase retained, but alias form is less precise than canonical disease nodes."
+    }
+  ],
+  "matched_field_downweight": [
+    {
+      "entity_types": ["gene", "target"],
+      "matched_fields": ["alias"],
+      "confidence_multiplier": 0.9,
+      "reason": "Gene and target aliases are noisier than approved symbols."
+    },
+    {
+      "entity_types": ["metabolite"],
+      "matched_fields": ["synonym"],
+      "confidence_multiplier": 0.95,
+      "reason": "Metabolite synonyms are retained but treated as lower precision than canonical names."
+    }
+  ]
+}

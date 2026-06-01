@@ -1,0 +1,57 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Stable resolver gold set for common metabolite identifiers.",
+  "cases": [
+    {
+      "case_id": "glucose_hmdb",
+      "input": {"HMDB": "HMDB0000122"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "glucose"}
+    },
+    {
+      "case_id": "glucose_chebi",
+      "input": {"ChEBI": "CHEBI:17234"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "glucose"}
+    },
+    {
+      "case_id": "pyruvate_name",
+      "input": {"name": "pyruvate"},
+      "expected": {"status": "matched_or_ambiguous", "entity_type": "metabolite", "label": "pyruvate"}
+    },
+    {
+      "case_id": "lactate_hmdb",
+      "input": {"HMDB": "HMDB0000190"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "lactic"}
+    },
+    {
+      "case_id": "glutamine_hmdb",
+      "input": {"HMDB": "HMDB0000641"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "glutamine"}
+    },
+    {
+      "case_id": "citrate_chebi",
+      "input": {"ChEBI": "CHEBI:30769"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "citric"}
+    },
+    {
+      "case_id": "succinate_chebi",
+      "input": {"ChEBI": "CHEBI:15741"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "succinic"}
+    },
+    {
+      "case_id": "fumarate_hmdb",
+      "input": {"HMDB": "HMDB0000134"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "fumaric"}
+    },
+    {
+      "case_id": "glycine_hmdb",
+      "input": {"HMDB": "HMDB0000123"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "glycine"}
+    },
+    {
+      "case_id": "atp_chebi",
+      "input": {"ChEBI": "CHEBI:15422"},
+      "expected": {"status": "matched", "entity_type": "metabolite", "label": "ATP"}
+    }
+  ]
+}

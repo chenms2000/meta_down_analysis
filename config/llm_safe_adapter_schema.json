@@ -1,0 +1,176 @@
+{
+  "schema_version": "llm_safe_adapter.schema.20260513",
+  "input_contract_version": "llm_safe_adapter.input.v1",
+  "output_contract_version": "llm_safe_adapter.output.v1",
+  "allowed_read_endpoints": [
+    "/analyze/metabolites",
+    "/analyze/differential-table",
+    "/evidence",
+    "/subgraph",
+    "/releases"
+  ],
+  "allowed_output_fields": [
+    "narrative_summary",
+    "evidence_digest",
+    "question_to_spec",
+    "candidate_suggestion",
+    "insufficient_evidence"
+  ],
+  "allowed_adapter_backends": [
+    "local",
+    "external_text",
+    "external_text_chunked",
+    "external_llm"
+  ],
+  "external_llm": {
+    "default_enabled": false,
+    "provider": "openai_compatible",
+    "required_env_or_cli": [
+      "LLM_SAFE_ADAPTER_ENABLE_EXTERNAL=1 or --enable-external-llm",
+      "LLM_SAFE_ADAPTER_MODEL or --llm-model",
+      "LLM_SAFE_ADAPTER_API_KEY or OPENAI_API_KEY"
+    ],
+    "request_controls": {
+      "temperature": 0,
+      "response_format": {"type": "json_object"}
+    },
+    "failure_mode": "blocked_by_guard"
+  },
+  "regression": {
+    "fixture_version": "llm_safe_adapter_regression.20260514",
+    "default_fixture": "tests/fixtures/llm_safe_adapter/llm_safe_adapter_regression_cases.json",
+    "report": "validation_reports/llm_safe_adapter_regression_report.json",
+    "metrics": [
+      "local_passed",
+      "local_failed",
+      "adversarial_probe_passed",
+      "adversarial_issue_counts",
+      "external_status_counts",
+      "guard_policy_hash",
+      "prompt_version"
+    ],
+    "external_default": "not_run"
+  },
+  "external_pilot": {
+    "pilot_version": "llm_safe_adapter.external_pilot.20260514",
+    "report": "validation_reports/llm_safe_adapter_external_pilot_report.json",
+    "default_gate_status": "not_run",
+    "live_gate_statuses": [
+      "passed",
+      "not_ready",
+      "needs_prompt_iteration",
+      "failed_adversarial_regression"
+    ],
+    "default_min_external_pass_rate": 1.0,
+    "readiness_required": [
+      "external_llm_enabled",
+      "model_configured",
+      "api_key_configured",
+      "endpoint_configured"
+    ]
+  },
+  "prediction_model": {
+    "contract_version": "metabolic_prediction_model.v1",
+    "confidence_tiers": [
+      "high",
+      "medium",
+      "exploratory",
+      "low"
+    ],
+    "overall_grades": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "prediction_tasks": [
+      "metabolic_theme_prediction",
+      "metabolic_state_prediction",
+      "pathway_prediction",
+      "transport_process_prediction",
+      "target_prediction",
+      "phenotype_context_prediction",
+      "drug_hypothesis_prediction",
+      "cell_context_prediction"
+    ],
+    "calibration_statuses": [
+      "calibrated_in_scope",
+      "exploratory_in_scope",
+      "coverage_downgraded",
+      "context_mismatch",
+      "upstream_confidence_limited",
+      "limited_input_support",
+      "graph_extrapolation",
+      "overlay_informed",
+      "appendix_low"
+    ],
+    "calibrated_confidence_formula": "raw_score*input_support_weight*match_confidence_weight*direction_consistency_weight*result_type_weight*distance_weight*genericity_weight, then context and upstream-confidence caps if applicable",
+    "theme_coverage_fields": [
+      "related_input_count",
+      "matched_support_count",
+      "ambiguous_support_count",
+      "unmatched_support_count",
+      "direction_consistency",
+      "significance_support_count",
+      "downgrade_reason"
+    ],
+    "appendix_fields": [
+      "context_mismatch",
+      "appendix",
+      "appendix_reason",
+      "downgrade_reason"
+    ]
+  },
+  "structured_prediction": {
+    "required_for_prediction_narration": true,
+    "claim_binding_fields": [
+      "prediction_id",
+      "confidence_tier",
+      "evidence_refs",
+      "claim_refs",
+      "appendix",
+      "research_only"
+    ],
+    "prediction_groups": [
+      "high_confidence_themes",
+      "medium_confidence_themes",
+      "exploratory_themes",
+      "downgraded_but_supported_themes",
+      "pathway_evidence",
+      "target_predictions",
+      "disease_predictions",
+      "drug_hypotheses",
+      "context_mismatch_results"
+    ],
+    "unsupported_claim_rule": "When structured_prediction is present, any output block that names or claims a prediction must include prediction_refs pointing to rows already present in structured_prediction."
+  },
+  "required_source_ref_fields": [
+    "source_type",
+    "ref_id",
+    "path"
+  ],
+  "source_types": [
+    "analysis_pack",
+    "evidence",
+    "subgraph",
+    "release"
+  ],
+  "statuses": [
+    "ok",
+    "insufficient_evidence",
+    "blocked_by_guard"
+  ],
+  "forbidden_decision_surfaces": [
+    "entity_resolution_decision",
+    "resolved_entity_uid",
+    "p_final",
+    "new_score",
+    "new_facts",
+    "new_entities",
+    "new_edges",
+    "curated_graph_write",
+    "graph_mutation"
+  ],
+  "natural_language_rule": "Every text, reason, digest, narrative, suggestion, or claim field must carry non-empty source_refs that point to refs present in the adapter input.",
+  "insufficient_evidence_rule": "When the adapter input has no analysis rows, evidence support, or subgraph slice, the output status must be insufficient_evidence and must not invent a narrative."
+}

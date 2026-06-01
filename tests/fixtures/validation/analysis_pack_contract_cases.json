@@ -1,0 +1,26 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Analysis Pack contract checks for deterministic mixed differential tables, review queues, quality warnings, and ranking claim traceability.",
+  "cases": [
+    {
+      "case_id": "mixed_differential_table_review_queue",
+      "input": [
+        {"input_id": "glucose_hmdb_up", "HMDB": "HMDB0000122", "log2FC": 1.2, "padj": 0.01, "direction": "up"},
+        {"input_id": "glucose_hmdb_duplicate", "HMDB": "HMDB0000122", "name": "glucose", "log2FC": 0.8, "pvalue": 0.03, "direction": "up"},
+        {"input_id": "pyruvate_down", "name": "pyruvate", "log2FC": -0.7, "padj": 0.04, "direction": "down"},
+        {"input_id": "hexose_mass_ambiguous", "formula": "C6H12O6", "mz": 181.070664466812, "adduct": "[M+H]+", "ppm_tolerance": 5},
+        {"input_id": "unknown_name_unmatched", "name": "not_a_real_metabolite_for_pack_fixture"}
+      ],
+      "expected": {
+        "top_pathway_label": "glycolysis",
+        "requires_analysis_pack": true,
+        "requires_review_queue": true,
+        "requires_quality_warnings": true,
+        "requires_duplicate_warning": true,
+        "requires_literature_evidence_pack": true,
+        "requires_explanation_paths": true
+      }
+    }
+  ]
+}

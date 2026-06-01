@@ -1,0 +1,56 @@
+{
+  "schema_version": "real_world_fixture_registry.v1",
+  "purpose": "Registry of real-world input fixtures that must remain auditable for release-level benchmark runs.",
+  "fixtures": [
+    {
+      "case_id": "cscc_trait_score_csv",
+      "path": "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv",
+      "fixture_type": "csv_trait_score",
+      "required_for_strict_release": true,
+      "description": "cSCC epithelial tumor-vs-adjacent trait-score differential input supplied by the user.",
+      "min_rows": 1,
+      "top_n": 80,
+      "identity_columns_any": ["trait", "reported_trait", "trait_name", "name", "metabolite", "compound", "HMDB", "ChEBI", "mz"],
+      "effect_columns_any": ["cohen_d", "log2FC", "effect_size", "trait_score_diff", "score_diff", "delta", "diff", "statistic"],
+      "expected_input_mode": "trait_score",
+      "benchmark_tags": {
+        "cancer_ids": ["cscc"],
+        "theme_ids": ["amino_acid"],
+        "input_modes": ["trait_score"]
+      },
+      "context": {
+        "cancer_type": "cutaneous squamous cell carcinoma",
+        "tissue": "skin",
+        "cell_type": "epithelial",
+        "comparison": "Tumor vs Adjacent",
+        "context_terms": ["cSCC", "cutaneous squamous cell carcinoma", "epithelial", "tumor", "adjacent"]
+      },
+      "expected_gold_ids": ["cscc_amino_acid_metabolism_axis"]
+    },
+    {
+      "case_id": "crc_trait_score_csv",
+      "path": "trait_score_diff_CRC_Epi_CRC_Tumor_vs_Adjacent.csv",
+      "fixture_type": "csv_trait_score",
+      "required_for_strict_release": true,
+      "description": "CRC epithelial tumor-vs-adjacent trait-score differential input supplied by the user.",
+      "min_rows": 1,
+      "top_n": 80,
+      "identity_columns_any": ["trait", "reported_trait", "trait_name", "name", "metabolite", "compound", "HMDB", "ChEBI", "mz"],
+      "effect_columns_any": ["cohen_d", "log2FC", "effect_size", "trait_score_diff", "score_diff", "delta", "diff", "statistic"],
+      "expected_input_mode": "trait_score",
+      "benchmark_tags": {
+        "cancer_ids": ["coad_read"],
+        "theme_ids": ["serine_one_carbon", "fatty_acid_lipid", "nucleotide", "sphingolipid"],
+        "input_modes": ["trait_score"]
+      },
+      "context": {
+        "cancer_type": "colorectal cancer",
+        "tissue": "colon",
+        "cell_type": "epithelial",
+        "comparison": "Tumor vs Adjacent",
+        "context_terms": ["CRC", "COAD", "READ", "colorectal cancer", "colon", "epithelial", "tumor", "adjacent"]
+      },
+      "expected_gold_ids": ["coad_read_colorectal_core_metabolism_axis", "coad_read_serine_one_carbon_axis", "coad_read_fatty_acid_lipid_axis"]
+    }
+  ]
+}

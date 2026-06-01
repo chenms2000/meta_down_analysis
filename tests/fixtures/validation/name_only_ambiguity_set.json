@@ -1,0 +1,47 @@
+{
+  "fixture_version": "phase1.5.20260513",
+  "release_id": "mvp_20260513T002254",
+  "purpose": "Name-only surfaces that should remain ambiguous or unmatched without stable IDs or orthogonal features.",
+  "cases": [
+    {
+      "case_id": "ceramide_name_only",
+      "input": {"name": "ceramide"},
+      "expected": {"status": "ambiguous", "reason": "generic lipid class should not resolve to a single exact metabolite"}
+    },
+    {
+      "case_id": "phosphatidylcholine_name_only",
+      "input": {"name": "phosphatidylcholine"},
+      "expected": {"status": "ambiguous", "reason": "generic phospholipid class requires chain-level or identifier evidence"}
+    },
+    {
+      "case_id": "pc_chain_shorthand_name_only",
+      "input": {"name": "PC 16:0/18:1"},
+      "expected": {"status": "ambiguous_or_unmatched", "reason": "lipid shorthand alone is insufficient for deterministic identity"}
+    },
+    {
+      "case_id": "lpc_chain_shorthand_name_only",
+      "input": {"name": "LPC 18:0"},
+      "expected": {"status": "ambiguous", "reason": "chain shorthand requires identifier, structure, RT, or MS2 support"}
+    },
+    {
+      "case_id": "hexose_name_only",
+      "input": {"name": "hexose"},
+      "expected": {"status": "ambiguous", "reason": "generic monosaccharide class has multiple exact structures"}
+    },
+    {
+      "case_id": "glutamine_name_only",
+      "input": {"name": "glutamine"},
+      "expected": {"status": "ambiguous", "reason": "name-only amino acid surface can map to multiple forms"}
+    },
+    {
+      "case_id": "serine_name_only",
+      "input": {"name": "serine"},
+      "expected": {"status": "ambiguous", "reason": "name-only amino acid surface can map to stereoisomers or residues"}
+    },
+    {
+      "case_id": "glycine_name_only",
+      "input": {"name": "glycine"},
+      "expected": {"status": "ambiguous", "reason": "name-only surface is ambiguous in the current resolver index"}
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": "gold_standard_coverage_requirements.v1",
+  "purpose": "Minimum benchmark coverage targets for release-level audit of gold standard conclusions. Missing cells are curation backlog, not biological negatives.",
+  "recommended_max_cells_per_gold_id": 2,
+  "dimensions": {
+    "cancers": [
+      {"cancer_id": "pan_cancer", "terms": ["cancer", "tumor", "carcinoma"]},
+      {"cancer_id": "BRCA", "terms": ["breast cancer", "brca", "breast carcinoma"]},
+      {"cancer_id": "COAD_READ", "terms": ["colorectal cancer", "colon cancer", "rectal cancer", "coad", "read", "crc"]},
+      {"cancer_id": "LUAD", "terms": ["lung adenocarcinoma", "luad", "non-small cell lung cancer", "lung cancer"]},
+      {"cancer_id": "HCC", "terms": ["hepatocellular carcinoma", "hcc", "liver cancer"]},
+      {"cancer_id": "melanoma", "terms": ["melanoma", "skin melanoma"]},
+      {"cancer_id": "cSCC", "terms": ["cutaneous squamous cell carcinoma", "cscc", "skin squamous cell carcinoma"]}
+    ],
+    "themes": [
+      {"theme_id": "glycolysis_lactate", "terms": ["glycolysis", "lactate", "glucose", "pyruvate"]},
+      {"theme_id": "tca_cycle", "terms": ["tca", "tricarboxylic", "citrate", "succinate", "fumarate", "malate", "ketoglutarate"]},
+      {"theme_id": "glutamine_glutamate", "terms": ["glutamine", "glutamate", "glutaminolysis"]},
+      {"theme_id": "serine_one_carbon", "terms": ["serine", "one-carbon", "folate", "glycine"]},
+      {"theme_id": "fatty_acid_lipid", "terms": ["fatty acid", "lipid", "acylcarnitine", "carnitine"]},
+      {"theme_id": "bile_acid", "terms": ["bile acid", "cholesterol"]},
+      {"theme_id": "redox_glutathione", "terms": ["redox", "glutathione", "oxidative stress", "nadph"]},
+      {"theme_id": "nucleotide_metabolism", "terms": ["nucleotide", "purine", "pyrimidine", "ribose", "ump", "atp"]},
+      {"theme_id": "lipid_classes", "terms": ["sphingomyelin", "ceramide", "phosphatidylcholine", "lipid class"]},
+      {"theme_id": "amino_acid_metabolism", "terms": ["amino acid", "alanine", "proline"]},
+      {"theme_id": "arachidonate_lipid", "terms": ["arachidonate", "arachidonic acid"]}
+    ]
+  },
+  "required_cells": [
+    {"cancer_id": "pan_cancer", "theme_id": "glycolysis_lactate", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "tca_cycle", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "glutamine_glutamate", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "serine_one_carbon", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "fatty_acid_lipid", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "redox_glutathione", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "nucleotide_metabolism", "min_positive_controls": 1},
+    {"cancer_id": "pan_cancer", "theme_id": "lipid_classes", "min_positive_controls": 1},
+    {"cancer_id": "BRCA", "theme_id": "glycolysis_lactate", "min_positive_controls": 1},
+    {"cancer_id": "BRCA", "theme_id": "glutamine_glutamate", "min_positive_controls": 1},
+    {"cancer_id": "BRCA", "theme_id": "serine_one_carbon", "min_positive_controls": 1},
+    {"cancer_id": "COAD_READ", "theme_id": "glycolysis_lactate", "min_positive_controls": 1},
+    {"cancer_id": "COAD_READ", "theme_id": "serine_one_carbon", "min_positive_controls": 1},
+    {"cancer_id": "COAD_READ", "theme_id": "fatty_acid_lipid", "min_positive_controls": 1},
+    {"cancer_id": "COAD_READ", "theme_id": "redox_glutathione", "min_positive_controls": 1},
+    {"cancer_id": "LUAD", "theme_id": "glycolysis_lactate", "min_positive_controls": 1},
+    {"cancer_id": "LUAD", "theme_id": "glutamine_glutamate", "min_positive_controls": 1},
+    {"cancer_id": "LUAD", "theme_id": "redox_glutathione", "min_positive_controls": 1},
+    {"cancer_id": "HCC", "theme_id": "bile_acid", "min_positive_controls": 1},
+    {"cancer_id": "HCC", "theme_id": "fatty_acid_lipid", "min_positive_controls": 1},
+    {"cancer_id": "HCC", "theme_id": "glutamine_glutamate", "min_positive_controls": 1},
+    {"cancer_id": "HCC", "theme_id": "redox_glutathione", "min_positive_controls": 1},
+    {"cancer_id": "melanoma", "theme_id": "glycolysis_lactate", "min_positive_controls": 1},
+    {"cancer_id": "melanoma", "theme_id": "glutamine_glutamate", "min_positive_controls": 1},
+    {"cancer_id": "melanoma", "theme_id": "tca_cycle", "min_positive_controls": 1},
+    {"cancer_id": "melanoma", "theme_id": "fatty_acid_lipid", "min_positive_controls": 1},
+    {"cancer_id": "cSCC", "theme_id": "amino_acid_metabolism", "min_positive_controls": 1},
+    {"cancer_id": "cSCC", "theme_id": "arachidonate_lipid", "min_positive_controls": 1}
+  ],
+  "minimum_negative_controls": 7
+}
