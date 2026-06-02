@@ -24,10 +24,10 @@ The source code used for the tumor metabolism knowledge-base construction and ev
 https://github.com/chenms2000/meta_down_analysis
 ```
 
-The repository includes scripts for data-source manifest handling, normalized-store construction, compound matching, knowledge-graph projection, literature evidence integration, differential-table workflow preparation, confidence-tiered explanation generation, and regression testing. The current repository version verified for local use corresponds to commit:
+The repository includes scripts for data-source manifest handling, normalized-store construction, compound matching, knowledge-graph projection, literature evidence integration, differential-table workflow preparation, confidence-tiered explanation generation, and regression testing. The current repository version verified for local use is archived as:
 
 ```text
-8640f52
+v1.0.0-paper
 ```
 
 The code is released under the MIT License. Third-party databases, literature-derived resources, external identifiers, and downloaded or rebuilt data resources remain subject to their original source licenses and citation requirements. The MIT License applies to the original code, scripts, and project documentation in the repository and does not relicense third-party data sources.
@@ -45,6 +45,5 @@ After creating a GitHub Release and archiving it with Zenodo, replace the GitHub
 ## Suggested Data and Code Availability Statement
 
 ```text
-The source code for the tumor metabolism knowledge-base construction and evidence-grounded explanation workflow is available at https://github.com/chenms2000/meta_down_analysis. The version verified for this study corresponds to commit 8640f52. The repository is released under the MIT License. Third-party databases and literature-derived resources used or downloaded by the workflow remain subject to their original licenses and citation requirements.
+The source code for the tumor metabolism knowledge-base construction and evidence-grounded explanation workflow is available at https://github.com/chenms2000/meta_down_analysis. The version verified for this study is archived as release v1.0.0-paper. The repository is released under the MIT License. Third-party databases and literature-derived resources used or downloaded by the workflow remain subject to their original licenses and citation requirements.
 ```
-

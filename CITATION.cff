@@ -6,7 +6,7 @@ authors:
   - name: "chenms2000"
 repository-code: "https://github.com/chenms2000/meta_down_analysis"
 url: "https://github.com/chenms2000/meta_down_analysis"
-version: "0.1.0"
+version: "v1.0.0-paper"
 date-released: "2026-06-03"
 license: MIT
 abstract: "A research workbench for organizing metabolite matching, knowledge-graph relationships, literature evidence, ranking results, and confidence tiers into auditable tumor metabolism explanations."
