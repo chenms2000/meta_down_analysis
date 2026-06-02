@@ -890,7 +890,7 @@ class ReleaseBatchBenchmarkTests(unittest.TestCase):
 
     def test_load_cssc_scenario_validates_trait_score_csv_schema(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            path = Path(tmp) / "cscc_fixture_candidate.csv"
             path.write_text(
                 "trait,reported_trait,cohen_d,padj\n"
                 "GCST1,Glutamine trait,0.5,0.01\n"
@@ -950,7 +950,7 @@ class ReleaseBatchBenchmarkTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            candidate = root / "backup" / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            candidate = root / "backup" / "cscc_fixture_candidate.csv"
             candidate.parent.mkdir(parents=True, exist_ok=True)
             candidate.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
             scenario = runner.registered_fixture_scenario(root, fixture)
@@ -1072,3 +1072,5 @@ class ReleaseBatchBenchmarkTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

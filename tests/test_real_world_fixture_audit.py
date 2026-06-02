@@ -45,7 +45,7 @@ class RealWorldFixtureAuditTests(unittest.TestCase):
     def test_missing_fixture_reports_candidate_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            candidate = root / "backup" / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            candidate = root / "backup" / "cscc_fixture_candidate.csv"
             candidate.parent.mkdir(parents=True, exist_ok=True)
             candidate.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
 
@@ -95,3 +95,5 @@ class RealWorldFixtureAuditTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

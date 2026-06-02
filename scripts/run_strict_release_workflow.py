@@ -30,7 +30,7 @@ WORKFLOW_VERSION = "strict_release_workflow.v1"
 DEFAULT_OUTPUT_ROOT = "validation_reports"
 DEFAULT_RUN_ID = "full_context_engine_20260519"
 DEFAULT_FIXTURE_REGISTRY = "config/real_world_fixture_registry.json"
-DEFAULT_CSSC_CSV = "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+DEFAULT_CSSC_CSV = "required_metabolism_fixture.csv"
 NON_BLOCKING_PARAMETER_ACTION_IDS = {"objective_incomplete_release_block"}
 
 
@@ -554,3 +554,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

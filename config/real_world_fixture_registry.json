@@ -4,7 +4,7 @@
   "fixtures": [
     {
       "case_id": "cscc_trait_score_csv",
-      "path": "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv",
+      "path": "required_metabolism_fixture.csv",
       "fixture_type": "csv_trait_score",
       "required_for_strict_release": true,
       "description": "cSCC epithelial tumor-vs-adjacent trait-score differential input supplied by the user.",
@@ -29,7 +29,7 @@
     },
     {
       "case_id": "crc_trait_score_csv",
-      "path": "trait_score_diff_CRC_Epi_CRC_Tumor_vs_Adjacent.csv",
+      "path": "secondary_metabolism_fixture.csv",
       "fixture_type": "csv_trait_score",
       "required_for_strict_release": true,
       "description": "CRC epithelial tumor-vs-adjacent trait-score differential input supplied by the user.",
@@ -54,3 +54,4 @@
     }
   ]
 }
+

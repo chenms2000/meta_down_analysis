@@ -66,7 +66,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_objective_status_complete_when_all_gates_are_proven(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
 
             report = audit.audit_objective_status(
@@ -153,7 +153,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_cscc_fixture_gate_is_not_coupled_to_arachidonate_theme(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
             batch = complete_batch_report()
             batch["benchmark_matrix"]["dimensions"]["themes"]["executed"] = []
@@ -179,7 +179,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_objective_status_requires_scenario_traceability_contract(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
             batch = complete_batch_report()
             batch["scenario_traceability_contract"] = {
@@ -212,7 +212,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_objective_status_requires_parameter_optimization_audit_to_be_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
 
             report = audit.audit_objective_status(
@@ -240,7 +240,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_objective_status_does_not_treat_self_release_guard_as_parameter_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
 
             report = audit.audit_objective_status(
@@ -272,7 +272,7 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
     def test_objective_status_requires_executed_matrix_coverage_even_when_exploratory_matrix_passed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            cscc = root / "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+            cscc = root / "required_metabolism_fixture.csv"
             cscc.write_text("trait,cohen_d\nGCST1,1.0\n", encoding="utf-8")
             batch = complete_batch_report()
             batch["benchmark_matrix"]["status"] = "passed"
@@ -332,3 +332,4 @@ class OptimizationObjectiveStatusTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

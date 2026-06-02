@@ -20,7 +20,7 @@ DEFAULT_BATCH_REPORT = "validation_reports/mvp_20260513T002254/batch_benchmark/r
 DEFAULT_READINESS_REPORT = "validation_reports/mvp_20260513T002254/batch_benchmark/release_readiness_audit.json"
 DEFAULT_WORKFLOW_REPORT = "validation_reports/mvp_20260513T002254/strict_release_workflow/strict_release_workflow_report.json"
 DEFAULT_PARAMETER_REPORT = "validation_reports/mvp_20260513T002254/release_parameter_optimization_audit.json"
-DEFAULT_CSSC_CSV = "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+DEFAULT_CSSC_CSV = "required_metabolism_fixture.csv"
 NON_BLOCKING_PARAMETER_ACTION_IDS = {"objective_incomplete_release_block"}
 
 
@@ -344,3 +344,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

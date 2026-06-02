@@ -121,23 +121,16 @@ CLI 示例：
 python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 releases
 python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 resolve glucose --entity-type metabolite
 python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 analyze-metabolites .\records.json --max-paths 25 --max-hops 4
-python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 analyze-differential-table .\TraitScore_GroupDiff_allCelltypes\significant\trait_score_diff_LUAD_Epi_LUAD_Tumor_vs_Adjacent_significant_q0.05.csv --max-records 80 --top-per-group 80
+python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 analyze-differential-table .\differential_results.csv --max-records 80 --top-per-group 80
 python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 explain .\records.json --question "请解释主要通路和证据"
 ```
 
-`TraitScore_GroupDiff_allCelltypes/` 里的 CSV 推荐使用 `analyze-differential-table`，
-不要用普通 `analyze-metabolites`。该入口会把两组比较表中的
-`trait/GCST`、`group1/group2`、`mean_diff`、`pseudo_log2FC_shifted`、
-`z_wilcoxon` 和 q 值列转换成 TraitScore 分析输入，并在结果里标出严格
-代谢物匹配、低权重扩展候选、歧义项和未匹配项。TraitScore 结果是研究候选
-解释，不是直接 LC-MS 丰度结论。
-
-更推荐的新入口是 `analyze-differential-table`。它把输入明确视为“已经计算好的差异结果表”，
+`analyze-differential-table` 会把输入明确视为“已经计算好的差异结果表”，
 只读取代谢物/trait 标识、效应量、P 值、FDR/q 值、方向和分组元数据，不需要原始丰度矩阵。
 如果没有标准 `log2FC`，会把 `mean_diff`、`cohen_d`、`z_wilcoxon` 等保留为带标签的方向性效应量，
 仅作为图谱种子权重和研究优先级信号，不改写成实测丰度结论。
 
-Web 工作台选择 `差异结果表` 或 `TraitScore 差异表` 时，提交入口仍是 `/chat`：
+Web 工作台选择 `差异结果表` 时，提交入口仍是 `/chat`：
 服务会先调用差异表选择/解析逻辑生成冻结 `analysis_pack`，再把该结果交给 `/explain`
 的本地模板或外部 LLM 叙述层。
 
@@ -175,7 +168,7 @@ python .\scripts\run_phase15_validation.py --workspace . --release-id mvp_202605
 - `请求超时（秒）`：网络慢或模型响应慢时可提高到 120-300
 - `代理 URL`：本机代理地址，例如 `http://127.0.0.1:7890`
 
-这种方式不需要重启服务。API key 只随本次请求发送到本机服务进程，不写入 manifest、返回 JSON 或审计哈希。建议先点“测试 LLM 连接”，确认连接、鉴权、模型名和代理都正常。外部模型只生成叙述文本；实体、证据、置信度、结论链和导出结构由本地代码固定生成。大差异表或 TraitScore 表推荐 `外部 LLM（分层文字）`：系统会把解析质量、ratio/class/identity、排名、证据和低置信附录分块送入模型，每块先过本地 guard，再用通过校验的分块生成总述。
+这种方式不需要重启服务。API key 只随本次请求发送到本机服务进程，不写入 manifest、返回 JSON 或审计哈希。建议先点“测试 LLM 连接”，确认连接、鉴权、模型名和代理都正常。外部模型只生成叙述文本；实体、证据、置信度、结论链和导出结构由本地代码固定生成。大差异表推荐 `外部 LLM（分层文字）`：系统会把解析质量、ratio/class/identity、排名、证据和低置信附录分块送入模型，每块先过本地 guard，再用通过校验的分块生成总述。
 
 可检查当前服务级 LLM 状态：
 

@@ -31,7 +31,7 @@ from run_literature_semantics_benchmark import benchmark_literature_semantics  #
 
 RUNNER_VERSION = "release_batch_benchmark.v5"
 DEFAULT_OUTPUT_ROOT = "validation_reports"
-DEFAULT_CSSC_CSV = "trait_score_diff_cSCC_Epi_cSCC_Tumor_vs_Adjacent.csv"
+DEFAULT_CSSC_CSV = "required_metabolism_fixture.csv"
 DEFAULT_RUN_ID = "full_context_engine_20260519"
 DEFAULT_GOLD_PATH = "config/gold_standard_conclusions.json"
 DEFAULT_GOLD_COVERAGE_REQUIREMENTS = "config/gold_standard_coverage_requirements.json"
@@ -2516,3 +2516,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
