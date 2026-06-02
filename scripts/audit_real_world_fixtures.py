@@ -108,7 +108,7 @@ def recovery_rerun_plan(fixture: dict[str, Any]) -> dict[str, Any]:
             },
             {
                 "step_id": "strict_batch_benchmark",
-                "purpose": "Rerun strict multi-cancer, multi-theme, multi-input release benchmark with held-out reruns.",
+                "purpose": "Rerun strict batch benchmark across multi-cancer, multi-theme, multi-input release scenarios with held-out reruns.",
                 "command": [
                     "python",
                     "scripts/run_release_batch_benchmark.py",
