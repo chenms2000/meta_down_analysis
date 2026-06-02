@@ -1,0 +1,2 @@
+accession_id,reported_trait,summary_statistics_url,pubmed_id,paper_title,manual_identity_scope,mapped_names,reviewed_pubchem_cid,reviewed_hmdb_id,reviewed_chebi_id,reviewed_inchikey,local_pubchem_cid_hits,annotation_note
+GCST00000000,Example metabolite levels,https://example.org/GCST00000000,00000000,Example source paper,local_name,Example metabolite,,,,,,Replace this row with a local GCST annotation table before analyzing GCST-only upstream results.

@@ -1,6 +1,20 @@
-# 代谢组知识图谱与智能解释工作台
+# GCST 上游结果解释与代谢组知识图谱工作台
 
-这个目录现在不只是下载器，也包含一个本地可运行的研究级代谢组知识图谱服务：它能把代谢物列表或差异代谢表解析成规范实体，基于冻结 release 做通路/靶点/疾病排序，回链文献证据，并通过 Web 界面给出可审计解释。
+这个仓库提供一个研究级 GCST/trait 上游结果解释插件和代谢组知识图谱服务。它能解析上游分析得到的 GCST 差异表或代谢物表，把输入连接到本地 GCST 注释、规范代谢物实体、知识图谱关系、文献证据、排名结果和置信度分层，并通过 Web 界面输出可审计解释。
+
+如果输入表只有 GCST accession 而没有代谢物名称，本地运行时需要额外准备 GCST annotation 文件。该文件不随代码仓库分发，应放在：
+
+```text
+raw_lake/European/European_trait_annotations.csv
+```
+
+或：
+
+```text
+raw_lake/European_point/European_trait_annotations.csv
+```
+
+字段模板见 [config/european_trait_annotations.template.csv](config/european_trait_annotations.template.csv)，详细说明见 [docs/gcst_annotation_dependency.md](docs/gcst_annotation_dependency.md)。
 
 快速打开互动界面：
 
@@ -32,7 +46,7 @@ http://127.0.0.1:8765/flow-test
 - 只读分析服务与 Web 工作台：`scripts/metabo_service.py`、`web/chat.html`
 - 证据绑定的安全解释层：`scripts/llm_safe_adapter.py`
 - 外部 LLM 连接自检：页面内“测试 LLM 连接”按钮和 `/llm/test` 接口可诊断鉴权、代理、DNS、模型名和超时问题
-- 差异结果表可通过 `/chat` 包装路径进入本地或外部 LLM 叙述层；LLM 只读取冻结分析包和证据，不参与解析或评分
+- GCST 差异结果表可通过 `/chat` 包装路径进入本地或外部 LLM 叙述层；LLM 只读取冻结分析包和证据，不参与解析或评分
 - 大输入可用“外部 LLM（分层文字）”：按解析质量、ratio/class/identity、排名、证据和低置信附录分块叙述，逐块 guard 后再汇总
 - 结果可信度与交互浏览：Web 工作台提供可信度阅读卡、可点击证据图谱、JSON/Markdown 导出
 - 研究优先级 overlay：`manual_sources/prediction_overlays/<release_id>/`

@@ -2,7 +2,7 @@
 
 当前可用发布：`mvp_20260513T002254`
 
-这个项目是研究级代谢组知识图谱与解释服务。它把公开数据库、规范化实体、图谱投影、文献证据和可审计解释层组合起来，用于分析用户上传的代谢物列表或差异代谢表。它不是临床决策系统。
+这个项目是研究级 GCST/trait 上游结果解释插件和代谢组知识图谱服务。它把公开数据库、本地 GCST 注释、规范化实体、图谱投影、文献证据和可审计解释层组合起来，用于分析用户上传的 GCST 差异表、trait 表或代谢物表。它不是临床决策系统。
 
 ## 一、最快使用流程
 
@@ -66,6 +66,25 @@ glutamine,0.6,0.04,0.08,up
 
 如果输入只有自然语言，服务会尽量解析类似 `glucose 上调 log2FC=1.2 p=0.01` 的片段。正式分析建议使用表格或 JSON。
 
+### GCST-only 上游表
+
+如果上游表只有 GCST accession，例如 `trait`、`GCST`、`accession_id`
+或 `gwas_trait`，本地需要准备 GCST annotation 文件来把 accession 映射到
+reported trait、代谢物候选、ratio component 或稳定化合物 ID。文件放在：
+
+```text
+raw_lake/European/European_trait_annotations.csv
+```
+
+或：
+
+```text
+raw_lake/European_point/European_trait_annotations.csv
+```
+
+模板见 [../config/european_trait_annotations.template.csv](../config/european_trait_annotations.template.csv)，字段说明见
+[gcst_annotation_dependency.md](gcst_annotation_dependency.md)。如果该文件不存在，系统仍能读取表格和保留 GCST-level 记录，但很多行会进入 unresolved 或低置信解释。
+
 ## 三、界面结果怎么看
 
 | 区块 | 含义 | 建议动作 |
@@ -85,6 +104,7 @@ glutamine,0.6,0.04,0.08,up
 ## 四、主要功能
 
 - 数据源下载：`download_all.ps1` 和 `scripts/download_databases.py` 根据 `config/source_catalog.toml` 抓取开放核心数据源，并生成 manifest。
+- GCST 注释依赖：`raw_lake/European*/European_trait_annotations.csv` 是本地数据依赖，不随代码仓库分发；schema 见 `config/european_trait_annotations.template.csv`。
 - 规范化数据仓：`scripts/build_normalized_store.py` 生成代谢物、基因、通路、疾病、靶点、文章和句子等规范表。
 - 图谱投影：`scripts/build_graph_projection.py` 生成节点、边、解析索引和稀疏图。
 - 化合物匹配索引：`scripts/build_compound_match_index.py` 支持名称、外部 ID、InChIKey、分子式、m/z、RT/MS2 扩展匹配。
@@ -129,6 +149,8 @@ python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T00225
 只读取代谢物/trait 标识、效应量、P 值、FDR/q 值、方向和分组元数据，不需要原始丰度矩阵。
 如果没有标准 `log2FC`，会把 `mean_diff`、`cohen_d`、`z_wilcoxon` 等保留为带标签的方向性效应量，
 仅作为图谱种子权重和研究优先级信号，不改写成实测丰度结论。
+
+对 GCST-only 表格，`European_trait_annotations.csv` 决定 accession 能否进入代谢物候选、ratio component 或稳定化合物 ID 解析；没有该文件时，输出应按 trait-level 或低置信结果解读。
 
 Web 工作台选择 `差异结果表` 时，提交入口仍是 `/chat`：
 服务会先调用差异表选择/解析逻辑生成冻结 `analysis_pack`，再把该结果交给 `/explain`
