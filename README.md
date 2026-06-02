@@ -171,3 +171,15 @@ https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.03/output/
 ```
 
 下一次 Open Targets 发布后，只需要在 `config/source_catalog.toml` 中把 `26.03` 改成新版本，再 dry run 验证。
+
+## 引用与开源许可
+
+本仓库代码以 MIT License 开源，见 [LICENSE](LICENSE)。如果在论文、报告或复现实验中使用本仓库，请优先引用冻结的 GitHub Release / Zenodo DOI；在 DOI 生成前，可引用本仓库地址：
+
+```text
+https://github.com/chenms2000/meta_down_analysis
+```
+
+仓库根目录提供 [CITATION.cff](CITATION.cff)，GitHub 会据此显示引用入口。论文 DOI 或 Zenodo DOI 生成后，应同步更新 `CITATION.cff`、README 和论文方法/数据可用性声明。
+
+许可边界：MIT License 适用于本仓库中的原创代码、脚本和项目文档。通过 `download_all.ps1`、`scripts/download_databases.py` 或配置文件引用、下载、重建的第三方数据库、文献、标识符、外部知识库和派生数据，应遵循其各自来源、许可条款和引用要求。本仓库不重新授权第三方数据源。
