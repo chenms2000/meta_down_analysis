@@ -1580,23 +1580,26 @@ class ExternalLLMNarratorBackend:
 
     def generate(self, input_pack: dict[str, Any]) -> BackendResult:
         self.config.validate_ready()
-        request_payload = build_external_llm_request(input_pack, self.config)
+        request_payload = build_external_text_llm_request(input_pack, self.config)
         response = self.transport(self.config, request_payload)
         if not isinstance(response, dict):
             raise LLMAdapterError("external_llm_invalid_response", "External LLM transport returned a non-object response.")
-        output = parse_external_llm_output(response)
+        text = extract_chat_completion_content(response).strip()
+        if not text:
+            raise LLMAdapterError("external_llm_empty_content", "External LLM response contained no assistant content.")
+        output = build_external_text_output(input_pack, text)
+        output["adapter_version"] = f"{EXTERNAL_ADAPTER_VERSION}.text_fixed_contract"
         audit = {
             "backend": self.backend_name,
-            "adapter_version": EXTERNAL_ADAPTER_VERSION,
+            "adapter_version": output.get("adapter_version", f"{EXTERNAL_ADAPTER_VERSION}.text_fixed_contract"),
             "provider": self.config.provider,
             "endpoint": self.config.endpoint,
             "model": self.config.model,
-            "prompt_version": LLM_NARRATOR_PROMPT_VERSION,
+            "prompt_version": f"{LLM_NARRATOR_PROMPT_VERSION}.text_fixed_contract",
             "prompt_hash": content_hash(
                 {
-                    "prompt_version": LLM_NARRATOR_PROMPT_VERSION,
+                    "prompt_version": f"{LLM_NARRATOR_PROMPT_VERSION}.text_fixed_contract",
                     "messages": request_payload["messages"],
-                    "response_format": request_payload.get("response_format"),
                 }
             ),
             "request_hash": content_hash({key: value for key, value in request_payload.items() if key != "messages"}),

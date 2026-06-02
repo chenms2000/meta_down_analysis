@@ -93,59 +93,20 @@ class LLMSafeAdapterTests(unittest.TestCase):
             backend.generate(input_pack)
         self.assertEqual(raised.exception.code, "external_llm_disabled")
 
-    def test_external_llm_backend_parses_json_and_keeps_audit_sanitized(self):
+    def test_external_llm_backend_wraps_text_and_keeps_audit_sanitized(self):
         fixture = self.load_fixture()
         input_pack = fixture["cases"][0]["input_pack"]
 
         def fake_transport(config, payload):
             self.assertEqual(config.model, "test-model")
             self.assertEqual(payload["temperature"], 0)
-            self.assertEqual(payload["response_format"], {"type": "json_object"})
+            self.assertNotIn("response_format", payload)
             return {
                 "id": "chatcmpl_fixture",
                 "choices": [
                     {
                         "message": {
-                            "content": json.dumps(
-                                {
-                                    "contract_version": "llm_safe_adapter.output.v1",
-                                    "adapter_version": "fake_external_llm",
-                                    "status": "ok",
-                                    "narrative_summary": {
-                                        "sections": [
-                                            {
-                                                "section_id": "external_summary",
-                                                "text": "The external narrator summarizes only the cited analysis pack.",
-                                                "source_refs": [
-                                                    {
-                                                        "source_type": "analysis_pack",
-                                                        "ref_id": "analysis_pack:root",
-                                                        "path": "$.analysis_pack",
-                                                    }
-                                                ],
-                                            }
-                                        ]
-                                    },
-                                    "question_to_spec": {
-                                        "items": [
-                                            {
-                                                "spec_id": "external_spec",
-                                                "endpoint": "/evidence",
-                                                "method": "read",
-                                                "params": {},
-                                                "text": "The requested explanation maps to cited evidence review.",
-                                                "source_refs": [
-                                                    {
-                                                        "source_type": "release",
-                                                        "ref_id": "release:mvp_20260513T002254",
-                                                        "path": "$.release.release_id",
-                                                    }
-                                                ],
-                                            }
-                                        ]
-                                    },
-                                }
-                            )
+                            "content": "The external narrator summarizes only the frozen analysis pack and preserves validation boundaries."
                         }
                     }
                 ],
@@ -166,6 +127,8 @@ class LLMSafeAdapterTests(unittest.TestCase):
         self.assertTrue(guard["passed"], guard.get("issues"))
         self.assertEqual(result.audit["backend"], "external_llm")
         self.assertEqual(result.audit["model"], "test-model")
+        self.assertIn("text_fixed_contract", result.audit["adapter_version"])
+        self.assertEqual(result.output["narrative_summary"]["sections"][0]["section_id"], "external_text_summary")
         self.assertIn("prompt_hash", result.audit)
         self.assertNotIn("secret", json.dumps(result.audit, sort_keys=True))
 

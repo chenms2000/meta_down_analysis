@@ -676,6 +676,52 @@
       line-height: 1.45;
     }
 
+    .entity-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .entity-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--teal);
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: rgba(255, 255, 255, 0.9);
+      overflow-wrap: anywhere;
+    }
+
+    .entity-card.pathway { border-left-color: var(--blue); }
+    .entity-card.target,
+    .entity-card.gene { border-left-color: var(--amber); }
+    .entity-card.disease,
+    .entity-card.drug { border-left-color: var(--red); }
+
+    .entity-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .entity-title strong {
+      min-width: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .entity-meta {
+      display: grid;
+      gap: 4px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
     .graph-column {
       min-width: 0;
       display: grid;
@@ -972,7 +1018,7 @@
       header { padding: 14px 16px; }
       .panel-head { flex-direction: column; }
       .workspace-body, .results-body { padding: 14px; }
-      .flow, .grid2, .grid3, .mode-grid, .compact-grid, .metrics, .confidence-grid, .graph-grid, .quality-grid { grid-template-columns: 1fr; }
+      .flow, .grid2, .grid3, .mode-grid, .compact-grid, .metrics, .confidence-grid, .graph-grid, .quality-grid, .entity-grid { grid-template-columns: 1fr; }
       .evidence-meta-grid { grid-template-columns: 1fr; }
       .evidence-panel {
         inset: 8px;
@@ -1101,7 +1147,7 @@
                   <option value="local" selected>本地安全模板</option>
                   <option value="external_text">外部 LLM（文字）</option>
                   <option value="external_text_chunked">外部 LLM（分层文字）</option>
-                  <option value="external_llm">外部 LLM（JSON）</option>
+                  <option value="external_llm">外部 LLM（固定结构+文本）</option>
                 </select>
               </label>
               <label>
@@ -1149,7 +1195,7 @@
                   <input id="llm-proxy-url" type="text" placeholder="例如 http://127.0.0.1:7890">
                 </label>
               </div>
-              <div class="hint">建议先选“外部 LLM（文字）”，它对模型返回格式要求更低；“外部 LLM（JSON）”适合能稳定输出严格 JSON 的模型。</div>
+              <div class="hint">外部 LLM 只生成文本；实体、证据、置信度、结论链和导出结构由本地代码固定生成。</div>
               <div class="chip-row" aria-label="LLM API 预设">
                 <button type="button" class="ghost" data-llm-endpoint="https://api.deepseek.com/chat/completions" data-llm-model="deepseek-v4-pro">DeepSeek V4 Pro</button>
                 <button type="button" class="ghost" data-llm-endpoint="https://api.deepseek.com/chat/completions" data-llm-model="deepseek-v4-flash">DeepSeek V4 Flash</button>
@@ -1579,6 +1625,30 @@
       }</div></div>`;
     }
 
+    function renderEntitySummary(card) {
+      const summary = card.entity_summary || {};
+      const label = summary.label || card.display_name || card.node_uid || "实体";
+      const type = summary.type || card.node_type || "node";
+      const primaryId = summary.primary_id || card.open_details?.primary_external_id || "";
+      const uid = summary.node_uid || card.node_uid || "";
+      const stableIds = asArray(summary.stable_ids).filter(Boolean);
+      const evidenceCount = summary.evidence_ref_count ?? asArray(card.open_details?.evidence_refs).length;
+      const confidence = summary.confidence_tier || card.confidence_tier || "exploratory";
+      const confidenceKind = confidence === "high" ? "ok" : confidence === "medium" ? "info" : "warn";
+      const identityLine = [
+        primaryId ? `主 ID：${primaryId}` : "",
+        uid ? `图谱 UID：${shortId(uid, 34)}` : "",
+        stableIds.length > 1 ? `可用 ID：${stableIds.slice(0, 3).join(" / ")}` : ""
+      ].filter(Boolean).join("；") || (summary.display_hint || "暂无稳定 ID");
+      return `<div class="entity-card ${escapeHtml(type)}">
+        <div class="entity-title"><strong>${escapeHtml(label)}</strong>${badge(type, "info")}</div>
+        <div class="entity-meta">
+          <div>${escapeHtml(identityLine)}</div>
+          <div>证据引用：${escapeHtml(evidenceCount)}；置信度：${badge(confidence, confidenceKind)}</div>
+        </div>
+      </div>`;
+    }
+
     function renderInterpretationReport(report) {
       if (!report || (!asArray(report.executive_summary).length && !asArray(report.conclusion_chains).length)) return "";
       const summaries = asArray(report.executive_summary).slice(0, 5);
@@ -1630,7 +1700,7 @@
         const refs = asArray(card.open_details?.evidence_refs);
         const action = refs.length ? renderEvidenceButton(`节点说明：${card.display_name}`, evidenceRequestFromRefs(refs, card.node_uid), "查看节点证据") : "";
         return `<div class="item">
-          <div class="topline"><span>${escapeHtml(card.display_name || card.node_uid || "节点")}</span>${badge(card.node_type || "node", "info")}</div>
+          ${renderEntitySummary(card)}
           <p>${escapeHtml(card.plain_language_definition || "")}</p>
           <div class="tagline">角色：${escapeHtml(card.role_in_network || "")}</div>
           <div class="tagline">出现原因：${escapeHtml(card.why_in_this_analysis || "")}</div>
@@ -1650,7 +1720,7 @@
       </div>`).join("");
       return `<div class="section"><h3>核心结论</h3><div class="tagline">这里按“结论-依据-机制-边界”组织已有图谱、证据和置信度；下方排名表是附录式支持层。</div><div class="list">${summaryHtml}</div></div>
         ${chainHtml ? `<div class="section"><h3>结论链路</h3><div class="list">${chainHtml}</div></div>` : ""}
-        ${nodeHtml ? `<div class="section"><h3>关键节点说明</h3><div class="grid2">${nodeHtml}</div></div>` : ""}
+        ${nodeHtml ? `<div class="section"><h3>关键实体说明</h3><div class="entity-grid">${nodeHtml}</div></div>` : ""}
         ${reviewHtml ? `<div class="section"><h3>不确定性与复核队列</h3><div class="list">${reviewHtml}</div></div>` : ""}
         ${validationHtml ? `<div class="section"><h3>下一步验证建议</h3><div class="list">${validationHtml}</div></div>` : ""}`;
     }

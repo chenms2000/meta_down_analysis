@@ -47,6 +47,15 @@ python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T00225
 全量总表较慢，GitHub 演示建议先跑 `significant/` 里的单个癌种 CSV 或用 `--max-records`
 限制输入规模。旧入口 `analyze-trait-score` 仍可用，但新入口语义更贴近差异表。
 
+如果要把 allDEGs 文件作为正式输入源，推荐先准备三层正式流程，而不是把全量行全部推入核心结论：
+
+```powershell
+python .\scripts\run_formal_differential_workflow.py --workspace . --release-id mvp_20260513T002254 --all-degs "D:\Desktop\TraitScore_GroupDiff_allCelltypes\allDEGs\trait_score_diff_LUAD_Epi_LUAD_Tumor_vs_Adjacent.csv"
+```
+
+该流程会生成核心报告输入、探索性附录输入、全量审计报告和可执行命令。详细说明见
+[docs/formal_differential_workflow.md](docs/formal_differential_workflow.md)。
+
 详细流程、输入格式、界面说明、API 和重建命令见 [docs/user_guide.md](docs/user_guide.md)。
 
 ## 当前主要功能

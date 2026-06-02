@@ -212,8 +212,8 @@ narrative. Guard issues remain visible for audit.
 D3 adds an optional external narrator backend behind the same `/explain`
 contract. It is disabled by default.
 
-External text mode accepts plain assistant text and wraps it into the guarded
-output contract. `external_text_chunked` is the large-input path: it sends
+External LLM modes accept plain assistant text and wrap it into the guarded
+output contract with local deterministic code. `external_text_chunked` is the large-input path: it sends
 compact, section-specific payloads for input parsing, ratio/class/identity
 signals, rankings, evidence, and low-confidence appendices; each chunk is
 guarded before a final summary is generated from the approved chunks.
@@ -234,9 +234,10 @@ default. The endpoint can be configured with `LLM_SAFE_ADAPTER_ENDPOINT` or
 External backend rules:
 
 - input is still only `llm_safe_adapter.input.v1`
-- output must still be `llm_safe_adapter.output.v1` JSON
+- structured output is built locally as `llm_safe_adapter.output.v1`
+- the external model only writes narrative text inside fixed local fields
 - temperature is fixed at `0`
-- JSON response mode is requested
+- JSON response mode is not required for external narration
 - no tools, browsing, resolver access, parquet access, graph writes, or release
   writes are exposed
 - output always passes through the local deterministic guard
@@ -244,11 +245,11 @@ External backend rules:
 - audit metadata records model, provider, endpoint, prompt hash, request hash,
   response hash, raw output hash, and adapter input hash
 
-If the backend is not explicitly enabled, missing model/API key, returns
-non-JSON, or raises a transport error, `/explain` returns `blocked_by_guard`
+If the backend is not explicitly enabled, missing model/API key, emits unsafe
+text, or raises a transport error, `/explain` returns `blocked_by_guard`
 with a guard issue such as `external_llm_disabled`,
-`missing_llm_model`, `missing_llm_api_key`, or
-`external_llm_output_not_json`.
+`missing_llm_model`, `missing_llm_api_key`, `overstrong_claim`, or
+`external_llm_transport_error`.
 
 ## Validation Fixtures
 
@@ -277,7 +278,7 @@ python -m unittest tests.test_metabo_service tests.test_llm_safe_adapter
 ```
 
 These tests also cover the D3 external backend using a fake transport: external
-LLM is opt-in, safe JSON can pass, and adversarial JSON is blocked.
+LLM is opt-in, safe text can pass, and adversarial text is blocked.
 
 ## D4 Regression Pack
 

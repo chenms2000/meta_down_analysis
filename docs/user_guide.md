@@ -167,7 +167,7 @@ python .\scripts\run_phase15_validation.py --workspace . --release-id mvp_202605
 
 ### 方式 A：页面内一次性配置
 
-在 Web 工作台里选择 `外部 LLM（文字）`、`外部 LLM（分层文字）` 或 `外部 LLM（JSON）`，展开“外部 LLM API 设置”，填写：
+在 Web 工作台里选择 `外部 LLM（文字）`、`外部 LLM（分层文字）` 或 `外部 LLM（固定结构+文本）`，展开“外部 LLM API 设置”，填写：
 
 - `Endpoint`：OpenAI 兼容 chat completions 地址，例如 `https://api.openai.com/v1/chat/completions`
 - `Model`：模型名
@@ -175,7 +175,7 @@ python .\scripts\run_phase15_validation.py --workspace . --release-id mvp_202605
 - `请求超时（秒）`：网络慢或模型响应慢时可提高到 120-300
 - `代理 URL`：本机代理地址，例如 `http://127.0.0.1:7890`
 
-这种方式不需要重启服务。API key 只随本次请求发送到本机服务进程，不写入 manifest、返回 JSON 或审计哈希。建议先点“测试 LLM 连接”，确认连接、鉴权、模型名和代理都正常，再用 `外部 LLM（文字）` 正式分析；文字模式对模型返回格式要求更低。大差异表或 TraitScore 表推荐 `外部 LLM（分层文字）`：系统会把解析质量、ratio/class/identity、排名、证据和低置信附录分块送入模型，每块先过本地 guard，再用通过校验的分块生成总述。
+这种方式不需要重启服务。API key 只随本次请求发送到本机服务进程，不写入 manifest、返回 JSON 或审计哈希。建议先点“测试 LLM 连接”，确认连接、鉴权、模型名和代理都正常。外部模型只生成叙述文本；实体、证据、置信度、结论链和导出结构由本地代码固定生成。大差异表或 TraitScore 表推荐 `外部 LLM（分层文字）`：系统会把解析质量、ratio/class/identity、排名、证据和低置信附录分块送入模型，每块先过本地 guard，再用通过校验的分块生成总述。
 
 可检查当前服务级 LLM 状态：
 

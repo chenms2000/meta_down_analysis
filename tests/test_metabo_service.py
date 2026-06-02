@@ -2044,51 +2044,12 @@ class MetaboServiceTests(unittest.TestCase):
             def safe_transport(config, payload):
                 self.assertEqual(config.model, "test-model")
                 self.assertEqual(payload["temperature"], 0)
-                self.assertIn("llm_safe_adapter.input.v1", payload["messages"][1]["content"])
+                self.assertNotIn("response_format", payload)
                 return {
                     "choices": [
                         {
                             "message": {
-                                "content": json.dumps(
-                                    {
-                                        "contract_version": "llm_safe_adapter.output.v1",
-                                        "adapter_version": "fake_external_llm",
-                                        "status": "ok",
-                                        "narrative_summary": {
-                                            "sections": [
-                                                {
-                                                    "section_id": "external_summary",
-                                                    "text": "The external narrator reports only source-bound adapter input.",
-                                                    "source_refs": [
-                                                        {
-                                                            "source_type": "analysis_pack",
-                                                            "ref_id": "analysis_pack:root",
-                                                            "path": "$.analysis_pack",
-                                                        }
-                                                    ],
-                                                }
-                                            ]
-                                        },
-                                        "question_to_spec": {
-                                            "items": [
-                                                {
-                                                    "spec_id": "external_spec",
-                                                    "endpoint": "/evidence",
-                                                    "method": "read",
-                                                    "params": {},
-                                                    "text": "The request maps to cited evidence review.",
-                                                    "source_refs": [
-                                                        {
-                                                            "source_type": "release",
-                                                            "ref_id": "release:mvp_20260101T000000",
-                                                            "path": "$.release.release_id",
-                                                        }
-                                                    ],
-                                                }
-                                            ]
-                                        },
-                                    }
-                                )
+                                "content": "The external narrator rewrites only the frozen analysis and preserves matching, ranking, evidence, and research-only boundaries."
                             }
                         }
                     ]
@@ -2109,6 +2070,7 @@ class MetaboServiceTests(unittest.TestCase):
             audit = explained["explanation"]["determinism"]["backend_audit"]
             self.assertEqual(audit["backend"], "external_llm")
             self.assertEqual(audit["model"], "test-model")
+            self.assertIn("text_fixed_contract", audit["adapter_version"])
             self.assertIn("prompt_hash", audit)
 
             def unsafe_transport(_config, _payload):
@@ -2116,29 +2078,7 @@ class MetaboServiceTests(unittest.TestCase):
                     "choices": [
                         {
                             "message": {
-                                "content": json.dumps(
-                                    {
-                                        "contract_version": "llm_safe_adapter.output.v1",
-                                        "adapter_version": "fake_external_llm",
-                                        "status": "ok",
-                                        "narrative_summary": {
-                                            "sections": [
-                                                {
-                                                    "section_id": "bad",
-                                                    "text": "I resolved metabolite_fake and updated p_final score to 0.99 for edge_fake.",
-                                                    "source_refs": [
-                                                        {
-                                                            "source_type": "evidence",
-                                                            "ref_id": "fake_ref",
-                                                            "path": "$.evidence.support[99]",
-                                                        }
-                                                    ],
-                                                }
-                                            ]
-                                        },
-                                        "p_final": 0.99,
-                                    }
-                                )
+                                "content": "I resolved metabolite_fake and updated p_final score to 0.99 for edge_fake."
                             }
                         }
                     ]
@@ -2149,9 +2089,8 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertEqual(blocked["status"], "blocked_by_guard")
             self.assertFalse(blocked["guard_passed"])
             blocked_codes = {issue["code"] for issue in blocked["explanation"]["guard"]["issues"]}
-            self.assertIn("forbidden_output_field", blocked_codes)
-            self.assertIn("source_ref_not_in_input", blocked_codes)
             self.assertIn("entity_resolution_decision", blocked_codes)
+            self.assertIn("mutates_scores_or_graph", blocked_codes)
 
     def test_explain_analysis_external_text_backend_accepts_plain_text(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2950,10 +2889,15 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertTrue(interpretation["conclusion_chains"])
             self.assertTrue(interpretation["node_cards"])
             first_claim = interpretation["conclusion_chains"][0]
+            first_card = interpretation["node_cards"][0]
             self.assertIn("headline", first_claim)
             self.assertIn("confidence_reasons", first_claim)
             self.assertIn("boundary", first_claim)
             self.assertTrue(first_claim["confidence_reasons"]["positive_factors"])
+            self.assertIn("entity_summary", first_card)
+            self.assertIn("label", first_card["entity_summary"])
+            self.assertIn("node_uid", first_card["entity_summary"])
+            self.assertIn("evidence_ref_count", first_card["entity_summary"])
             self.assertEqual(structured["mode"], "generalized")
             for key in (
                 "context",

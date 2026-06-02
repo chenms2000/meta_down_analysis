@@ -11569,11 +11569,25 @@ class MetaboService:
         node = self.get_node(node_uid) if node_uid else None
         xrefs = parse_list((node or {}).get("external_xrefs"))[:10]
         primary_id = (node or {}).get("primary_external_id", "")
+        evidence_count = len(evidence_refs or [])
+        stable_ids = [value for value in [primary_id, *xrefs] if value]
+        entity_label = display_name or (node or {}).get("display_name", "") or node_uid
         return {
             "node_uid": node_uid,
-            "display_name": display_name or (node or {}).get("display_name", "") or node_uid,
+            "display_name": entity_label,
             "node_type": node_type,
-            "plain_language_definition": self.interpretation_node_definition(node_type, display_name),
+            "entity_summary": {
+                "label": entity_label,
+                "type": node_type,
+                "primary_id": primary_id,
+                "node_uid": node_uid,
+                "stable_ids": stable_ids[:6],
+                "evidence_ref_count": evidence_count,
+                "confidence_tier": confidence_tier,
+                "is_precise_entity": bool(node_uid and node_type not in {"metabolic_theme", "disease", "drug"}),
+                "display_hint": "精确图谱实体" if node_uid else "主题或候选实体",
+            },
+            "plain_language_definition": self.interpretation_node_definition(node_type, entity_label),
             "role_in_network": {
                 "metabolite": "输入或解析种子",
                 "pathway": "通路/主题组织节点",
