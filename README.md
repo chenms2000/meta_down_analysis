@@ -1,17 +1,17 @@
 # meta_down_analysis
 
-这是一个仍在完善中的研究 demo，用于把上游分析得到的 GCST/trait 差异表或普通代谢物表整理成可审计的代谢解释。它不是完整产品，也不是临床决策系统；当前目标是把“看不懂的 GCST 或代谢物差异结果”分层连接到本地注释、代谢物候选、知识图谱关系、文献证据、排序结果和置信度边界。
+本仓库提供一个研究原型，用于对上游分析产生的 GCST/trait 差异表和普通代谢物表进行结构化解析与证据组织。该原型旨在将输入记录分层连接到本地注释、代谢物候选、知识图谱关系、文献证据、排序结果和置信度边界，形成可审计的研究解释。该工具仍需进一步方法学验证和工程完善，不应视为临床决策系统。
 
-## Demo 定位
+## 范围与定位
 
 - **输入对象**：GCST/trait 差异表、普通代谢物差异表、带 HMDB/ChEBI/PubChem/InChIKey 的代谢物列表。
-- **主要用途**：把上游表格转换成研究解释线索，而不是重新做上游统计分析。
+- **主要用途**：将上游表格转换为可追溯的研究解释线索，而不是重新执行上游统计分析。
 - **输出形式**：实体匹配、歧义项、低置信候选、通路/靶点/疾病排序、证据引用、解释边界和导出 JSON/Markdown。
-- **当前边界**：GCST 解析依赖本地 annotation；图谱传播和模型排序只作为研究优先级，不直接支持临床或治疗结论。
+- **当前边界**：GCST 解析依赖本地 annotation 文件；图谱传播和模型排序仅作为研究优先级信号，不支持临床或治疗结论。
 
 ## 本地数据依赖
 
-如果输入表只有 GCST accession 而没有代谢物名称，本地运行时需要额外准备 GCST annotation 文件。该文件不随代码仓库分发，应放在：
+如果输入表只有 GCST accession 而没有代谢物名称，本地运行时需要额外准备 GCST annotation 文件。该文件作为数据依赖单独管理，不随代码仓库分发，应放在：
 
 ```text
 raw_lake/European/European_trait_annotations.csv
@@ -25,14 +25,14 @@ raw_lake/European_point/European_trait_annotations.csv
 
 字段模板见 [config/european_trait_annotations.template.csv](config/european_trait_annotations.template.csv)，详细说明见 [docs/gcst_annotation_dependency.md](docs/gcst_annotation_dependency.md)。
 
-普通代谢物表不需要该 GCST annotation 文件；只要包含 `name`、`metabolite`、`HMDB`、`ChEBI`、`PubChem CID`、`InChIKey`、`log2FC`、`pvalue`、`padj`、`direction` 等常见列，即可走常规代谢物解析路径。
+普通代谢物表不需要该 GCST annotation 文件；包含 `name`、`metabolite`、`HMDB`、`ChEBI`、`PubChem CID`、`InChIKey`、`log2FC`、`pvalue`、`padj`、`direction` 等常见列时，可使用常规代谢物解析路径。
 
 ## 方法学概览
 
 1. **输入识别**：系统先判断输入是普通代谢物表、GCST/trait 表，还是已经计算好的两组差异结果表。差异表只读取标识符、效应量、显著性、方向和分组元数据，不读取原始丰度矩阵。
 2. **GCST 注释映射**：对 GCST-only 输入，系统用本地 `European_trait_annotations.csv` 将 accession 映射到 reported trait、候选代谢物、ratio component、class/pool 线索或稳定化合物 ID。没有 annotation 时，GCST 只能作为 trait-level 记录保留。
-3. **实体解析**：代谢物名称和稳定 ID 会进入冻结的 compound match index。严格匹配保留为高可信种子；歧义名称、ratio trait、class/pool 或 analog candidate 只作为低权重扩展种子。
-4. **差异信号处理**：`log2FC`、`mean_diff`、`cohen_d`、`z_wilcoxon`、FDR/q 值等被保留为带标签的效应量。若不是直接丰度测量，输出会标记为 surrogate differential signal，避免写成“实测代谢物上调/下调”。
+3. **实体解析**：代谢物名称和稳定 ID 会进入冻结的 compound match index。严格匹配保留为较高可信度种子；歧义名称、ratio trait、class/pool 或 analog candidate 仅作为低权重扩展种子。
+4. **差异信号处理**：`log2FC`、`mean_diff`、`cohen_d`、`z_wilcoxon`、FDR/q 值等被保留为带标签的效应量。若输入并非直接丰度测量，输出会标记为 surrogate differential signal，避免将其表述为实测代谢物丰度变化。
 5. **知识图谱与证据连接**：解析后的种子连接到代谢物、通路、反应、基因/靶点、疾病和文献证据 overlay。排名结果保留 edge、source record、literature evidence 或模型输出引用。
 6. **置信度与边界**：结论按严格匹配、扩展候选、图传播、文献支持和模型-only 信号分层。弱证据、歧义匹配、ratio component、未复核 GCST 和纯模型排序会被降级。
 7. **叙述层**：本地模板或外部 LLM 只读取冻结 analysis pack。外部 LLM 不能创建实体、改写评分、修改图谱或补充无来源事实。
@@ -73,7 +73,7 @@ http://127.0.0.1:8765/flow-test
 - 研究优先级 overlay：`manual_sources/prediction_overlays/<release_id>/`
 - 发布验证与回归测试：`scripts/run_phase15_validation.py`、`tests/`
 
-> 注意：本系统是研究工具，不是临床决策系统。歧义匹配不会被强行纳入评分，外部 LLM 也不能创建事实、修改图谱或改写评分。
+> 注意：本系统用于研究解释和验证优先级排序，不构成临床决策系统。歧义匹配不会被强行提升为高置信证据，外部 LLM 也不能创建事实、修改图谱或改写评分。
 
 ## 原始数据下载层
 

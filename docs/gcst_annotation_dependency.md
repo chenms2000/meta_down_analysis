@@ -1,6 +1,6 @@
 # GCST Annotation Dependency
 
-This repository is a research demo for interpreting upstream GCST/trait
+This repository is a research prototype for interpreting upstream GCST/trait
 differential tables and ordinary metabolite tables. The code can parse the
 GCST table format directly, but GCST-only inputs need a local annotation table
 to map each GCST accession to reported traits, metabolite candidates, ratio
