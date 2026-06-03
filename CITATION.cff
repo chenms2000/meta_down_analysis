@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this repository, please cite the archived release and the associated paper when available."
-title: "meta_down_analysis: Evidence-grounded tumor metabolism knowledge base and research explanation workbench"
+title: "meta_down_analysis: Demo plugin for GCST and metabolite-table interpretation"
 type: software
 authors:
   - name: "chenms2000"
@@ -9,4 +9,4 @@ url: "https://github.com/chenms2000/meta_down_analysis"
 version: "v1.0.0-paper"
 date-released: "2026-06-03"
 license: MIT
-abstract: "A research workbench for organizing metabolite matching, knowledge-graph relationships, literature evidence, ranking results, and confidence tiers into auditable tumor metabolism explanations."
+abstract: "A research demo for parsing GCST/trait differential tables and ordinary metabolite tables into auditable metabolite candidates, graph evidence, literature support, ranking fields, confidence tiers, and interpretation boundaries."

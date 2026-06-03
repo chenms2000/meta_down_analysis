@@ -1,9 +1,10 @@
 # GCST Annotation Dependency
 
-This repository is designed to interpret upstream GCST-based differential
-tables. The code can parse the table format directly, but GCST-only inputs need
-a local annotation table to map each GCST accession to reported traits,
-metabolite candidates, ratio components, and optional stable compound IDs.
+This repository is a research demo for interpreting upstream GCST/trait
+differential tables and ordinary metabolite tables. The code can parse the
+GCST table format directly, but GCST-only inputs need a local annotation table
+to map each GCST accession to reported traits, metabolite candidates, ratio
+components, and optional stable compound IDs.
 
 The annotation table is a data dependency and is not distributed in this code
 repository. Place the local file at one of these paths:
@@ -51,3 +52,11 @@ The resulting annotation file should be treated as a research data artifact. If
 full reproducibility is required for a manuscript, distribute it separately as a
 supplementary table or data archive, not as part of the code repository.
 
+## Interpretation Boundary
+
+The annotation table does not make every GCST accession a precise metabolite.
+Rows can represent direct metabolite-like traits, ratios, lipid shorthand,
+class-level traits, unknown platform features, or manually reviewed strict
+identities. The analysis output should preserve those categories. Ambiguous
+or ratio-derived mappings should remain lower-confidence research signals
+unless independently reviewed.
