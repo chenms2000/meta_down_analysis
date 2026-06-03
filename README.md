@@ -27,6 +27,8 @@ raw_lake/European_point/European_trait_annotations.csv
 
 普通代谢物表不需要该 GCST annotation 文件；包含 `name`、`metabolite`、`HMDB`、`ChEBI`、`PubChem CID`、`InChIKey`、`log2FC`、`pvalue`、`padj`、`direction` 等常见列时，可使用常规代谢物解析路径。
 
+文献证据 overlay 使用本地重建的文献语料。GitHub 仓库只记录检索式、时间范围、筛选条件和重建边界，不分发文献记录、摘要、全文、影响因子表或句级抽取结果。检索策略见 [config/literature_search_strategy.json](config/literature_search_strategy.json)，说明见 [docs/literature_corpus_dependency.md](docs/literature_corpus_dependency.md)。
+
 ## 方法学概览
 
 1. **输入识别**：系统先判断输入是普通代谢物表、GCST/trait 表，还是已经计算好的两组差异结果表。差异表只读取标识符、效应量、显著性、方向和分组元数据，不读取原始丰度矩阵。
@@ -64,6 +66,7 @@ http://127.0.0.1:8765/flow-test
 - 图谱投影与解析索引：`scripts/build_graph_projection.py`
 - 化合物匹配索引：`scripts/build_compound_match_index.py`
 - 文献证据 overlay：`scripts/build_literature_evidence.py`
+- 文献语料重建策略：`config/literature_search_strategy.json`、`docs/literature_corpus_dependency.md`
 - 只读分析服务与 Web 工作台：`scripts/metabo_service.py`、`web/chat.html`
 - 证据绑定的安全解释层：`scripts/llm_safe_adapter.py`
 - 外部 LLM 连接自检：页面内“测试 LLM 连接”按钮和 `/llm/test` 接口可诊断鉴权、代理、DNS、模型名和超时问题

@@ -105,6 +105,7 @@ raw_lake/European_point/European_trait_annotations.csv
 
 - 数据源下载：`download_all.ps1` 和 `scripts/download_databases.py` 根据 `config/source_catalog.toml` 抓取开放核心数据源，并生成 manifest。
 - GCST 注释依赖：`raw_lake/European*/European_trait_annotations.csv` 是本地数据依赖，不随代码仓库分发；schema 见 `config/european_trait_annotations.template.csv`。
+- 文献语料依赖：文献证据 overlay 需要用户按 [../config/literature_search_strategy.json](../config/literature_search_strategy.json) 在本地重建；仓库不分发下载的文献记录、摘要、全文、影响因子表或句级抽取结果，边界说明见 [literature_corpus_dependency.md](literature_corpus_dependency.md)。
 - 规范化数据仓：`scripts/build_normalized_store.py` 生成代谢物、基因、通路、疾病、靶点、文章和句子等规范表。
 - 图谱投影：`scripts/build_graph_projection.py` 生成节点、边、解析索引和稀疏图。
 - 化合物匹配索引：`scripts/build_compound_match_index.py` 支持名称、外部 ID、InChIKey、分子式、m/z、RT/MS2 扩展匹配。
@@ -175,6 +176,7 @@ python .\scripts\run_phase15_validation.py --workspace . --release-id mvp_202605
 - 有 RT/MS2 手工特征时，放入 `manual_sources/compound_features/<release_id>/` 后重建 compound match index。
 - 有药物靶点或细胞背景 overlay 时，放入 `manual_sources/prediction_overlays/<release_id>/`，或运行 `scripts/build_prediction_overlays.py`。
 - 文献证据规则变更后，先运行 `scripts/run_evidence_precision_qa.py`，再决定是否进入发布。
+- 文献语料更新时，先按 `config/literature_search_strategy.json` 重建本地 `literature_corpus/<release_id>/`，记录 manifest 和 checksum，再重新生成 `literature_evidence/<release_id>/`。
 
 ## 七、外部 LLM
 

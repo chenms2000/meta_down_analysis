@@ -1,0 +1,38 @@
+{
+  "schema_version": "literature_search_strategy.v1",
+  "purpose": "Record the literature-corpus rebuild strategy for the optional literature-evidence overlay. Full article records, abstracts, full text, journal impact-factor tables, and derived sentence evidence are not distributed with the GitHub repository.",
+  "source": {
+    "query_database": "PubMed",
+    "retrieval_platform_note": "The local corpus was rebuilt from PubMed/PMC literature records accessed through the Amazon Web Services Open Data environment used by the project. Users should verify the applicable PubMed, PMC, AWS Open Data, and publisher terms before redistributing records.",
+    "public_rebuild_mode": "Users rebuild the corpus locally from the recorded query and filtering criteria."
+  },
+  "date_range": {
+    "from": "2015-01-01",
+    "to": "2026-05-05"
+  },
+  "pubmed_query": "((cancer[tiab] OR cancers[tiab] OR tumor[tiab] OR tumors[tiab] OR tumour[tiab] OR tumours[tiab] OR neoplasm*[tiab] OR carcinoma*[tiab] OR malignan*[tiab] OR oncolog*[tiab] OR \"Neoplasms\"[MeSH Terms]) AND (metabolism[tiab] OR metabolic[tiab] OR metabolite*[tiab] OR metabolomic*[tiab] OR metabolome[tiab] OR \"cancer metabolism\"[tiab] OR \"tumor metabolism\"[tiab] OR \"tumour metabolism\"[tiab] OR \"metabolic reprogramming\"[tiab] OR \"metabolic rewiring\"[tiab] OR \"metabolic plasticity\"[tiab] OR \"energy metabolism\"[tiab] OR bioenergetic*[tiab] OR \"Metabolism\"[MeSH Terms] OR \"Metabolomics\"[MeSH Terms])) AND (\"2015/01/01\"[Date - Publication] : \"2026/05/05\"[Date - Publication])",
+  "screening_summary": {
+    "initial_records": "approximately 140000",
+    "impact_factor_filter": ">5",
+    "included_records": "approximately 50000"
+  },
+  "redistribution_boundary": {
+    "include_in_github": [
+      "query string",
+      "date range",
+      "filter criteria",
+      "schema and documentation for local rebuilding"
+    ],
+    "exclude_from_github": [
+      "downloaded PubMed/PMC records",
+      "abstracts or full text",
+      "journal impact-factor source tables",
+      "locally mined sentence-level evidence"
+    ]
+  },
+  "recommended_local_paths": {
+    "pmid_list": "literature_corpus/<release_id>/pmids.txt",
+    "corpus_manifest": "literature_corpus/<release_id>/manifest.json",
+    "mined_evidence": "literature_evidence/<release_id>/"
+  }
+}

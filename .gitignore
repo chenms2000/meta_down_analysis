@@ -21,6 +21,7 @@ normalized_store/
 graph_projection/
 database_accuracy_store/
 compound_match_index/
+literature_corpus/
 literature_evidence/
 pubchem_cid_cache/
 articles_collect/
