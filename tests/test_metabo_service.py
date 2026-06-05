@@ -1377,6 +1377,10 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertTrue(pack["pathway_rankings"])
             self.assertTrue(pack["target_rankings"])
             self.assertTrue(pack["disease_rankings"])
+            self.assertEqual(
+                pack["top_explanation_paths"][0]["path_id"],
+                pack["pathway_rankings"][0]["best_path_id"],
+            )
             self.assertEqual(pack["prediction_model"]["contract_version"], "metabolic_prediction_model.v1")
             self.assertEqual(pack["prediction_model"]["assessment"]["grade"], "A")
             self.assertEqual(pack["pathway_rankings"][0]["prediction_task"], "pathway_prediction")
@@ -1420,6 +1424,50 @@ class MetaboServiceTests(unittest.TestCase):
             releases = service.releases()
             self.assertEqual(releases["releases"][0]["release_id"], "mvp_20260101T000000")
             self.assertTrue(releases["releases"][0]["has_literature_evidence"])
+
+    def test_analysis_pack_adds_fallback_chains_when_graph_paths_are_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            records = [{"HMDB": "HMDB0000122", "log2FC": 2.0, "padj": 0.001, "direction": "up"}]
+            precheck = service.precheck_metabolites(records)
+            analysis_features, features_by_uid = service.matched_analysis_features(precheck["matched"])
+            seed_weights = service.seed_weights_from_features(features_by_uid)
+            seed_presence_weights = service.seed_presence_weights_from_features(features_by_uid)
+            matched_uids = sorted(features_by_uid)
+            propagation = service.propagate_scores(seed_weights)
+            pathways = service.merge_pathway_rankings(
+                service.pathway_enrichment(matched_uids, seed_presence_weights),
+                propagation,
+                {},
+                features_by_uid,
+                input_records=records,
+            )
+            targets = service.propagation_ranking(propagation, "target", "target_uid", {})
+            diseases = service.propagation_ranking(propagation, "disease", "disease_uid", {})
+
+            pack = service.build_analysis_pack(
+                {"records": records},
+                precheck,
+                analysis_features,
+                features_by_uid,
+                seed_weights,
+                pathways[:5],
+                targets[:5],
+                diseases[:5],
+                [],
+                propagation,
+            )
+
+            self.assertFalse(pack["top_explanation_paths"])
+            self.assertTrue(pack["fallback_explanation_chains"])
+            chain = pack["fallback_explanation_chains"][0]
+            self.assertEqual(chain["chain_type"], "ranking_evidence_fallback")
+            self.assertTrue(chain["is_fallback_chain"])
+            self.assertLessEqual(chain["path_confidence"], 0.25)
+            self.assertTrue(chain["claim_refs"]["traceability_passed"])
+            self.assertIn("not a stable stepwise graph path", chain["boundary"])
+            warning = next(row for row in pack["quality_warnings"] if row["code"] == "no_explanation_paths")
+            self.assertIn("fallback_chain_policy", warning["details"])
 
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1948,6 +1996,12 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertEqual(analyzed["analysis_pack"]["input_summary"]["matched_count"], 1)
             self.assertEqual(analyzed["selected_records"][0]["effect_label"], "mean_diff")
             self.assertIn("raw abundance", analyzed["differential_table_selection"]["selection_rule"])
+            self.assertIn("explanation_paths", analyzed)
+            self.assertIn("compressed_explanation_paths", analyzed)
+            self.assertEqual(
+                len(analyzed["analysis_pack"]["top_explanation_paths"]),
+                min(len(analyzed["explanation_paths"]), metabo_service.ANALYSIS_PACK_PATH_LIMIT),
+            )
 
     def test_differential_chat_mode_wraps_selected_analysis_for_explanation(self):
         with tempfile.TemporaryDirectory() as tmp:

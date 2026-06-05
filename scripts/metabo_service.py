@@ -9832,8 +9832,12 @@ class MetaboService:
             add(
                 "no_explanation_paths",
                 "warning",
-                "Matched seeds produced no explanation paths under the current hop and confidence limits.",
-                {"max_hops": self.config.max_hops, "max_paths": self.config.max_paths},
+                "Matched seeds produced no stable stepwise graph paths under the current hop and confidence limits; ranking evidence fallback chains may still be shown as low-confidence audit support.",
+                {
+                    "max_hops": self.config.max_hops,
+                    "max_paths": self.config.max_paths,
+                    "fallback_chain_policy": "ranking_evidence_fallback_only_when_top_explanation_paths_are_empty",
+                },
             )
         return sorted(warnings, key=lambda row: (row["severity"], row["code"]))
 
@@ -10668,6 +10672,133 @@ class MetaboService:
             "claim_refs": self.analysis_pack_claim_refs(refs, path_id=path.get("path_id", "")),
             "evidence_refs": refs,
         }
+
+    def select_analysis_pack_top_paths(
+        self,
+        paths: list[dict[str, Any]],
+        ranking_sections: list[list[dict[str, Any]]],
+        limit: int = ANALYSIS_PACK_PATH_LIMIT,
+    ) -> list[dict[str, Any]]:
+        paths_by_id = {path.get("path_id", ""): path for path in paths if path.get("path_id")}
+        selected: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        def add_path(path: dict[str, Any] | None) -> None:
+            if not path or len(selected) >= limit:
+                return
+            path_id = str(path.get("path_id") or "")
+            if not path_id or path_id in seen:
+                return
+            selected.append(path)
+            seen.add(path_id)
+
+        for rows in ranking_sections:
+            for row in rows[:limit]:
+                add_path(paths_by_id.get(str(row.get("best_path_id") or "")))
+                if len(selected) >= limit:
+                    return selected
+        for path in paths:
+            add_path(path)
+            if len(selected) >= limit:
+                break
+        return selected
+
+    def analysis_pack_fallback_explanation_chains(
+        self,
+        pathway_rankings: list[dict[str, Any]],
+        target_rankings: list[dict[str, Any]],
+        disease_rankings: list[dict[str, Any]],
+        input_summary: dict[str, Any],
+        limit: int = ANALYSIS_PACK_PATH_LIMIT,
+    ) -> list[dict[str, Any]]:
+        chains = []
+        ranking_groups = (
+            ("pathway_rankings", "pathway_uid", "pathway", pathway_rankings),
+            ("target_rankings", "target_uid", "target", target_rankings),
+            ("disease_rankings", "disease_uid", "disease", disease_rankings),
+        )
+        downgrade_reasons = [
+            "no_direct_graph_path_under_current_hop_and_confidence_limits",
+            "ranking_row_uses_propagation_or_literature_support_not_stepwise_causal_path",
+        ]
+        if int(input_summary.get("ambiguous_count", 0) or 0) or int(input_summary.get("expanded_candidate_count", 0) or 0):
+            downgrade_reasons.append("ambiguous_or_expanded_seed_support_present")
+        if str(input_summary.get("analysis_mode") or "") == "differential_table":
+            downgrade_reasons.append("differential_table_input_is_precomputed_score_not_raw_abundance")
+
+        for section, uid_key, terminal_type, rows in ranking_groups:
+            for row in rows[:5]:
+                if len(chains) >= limit:
+                    return chains
+                terminal_uid = str(row.get(uid_key) or "")
+                if not terminal_uid:
+                    continue
+                refs = self.analysis_pack_dedupe_refs(row.get("evidence_refs", []) or [])
+                claim_refs = row.get("claim_refs") or self.analysis_pack_claim_refs(refs)
+                if not claim_refs.get("traceability_passed"):
+                    continue
+                seed_uids = [
+                    str(uid)
+                    for uid in row.get("matched_metabolite_uids", []) or []
+                    if uid
+                ][:10]
+                if not seed_uids:
+                    seed_uids = sorted(
+                        {
+                            str(ref.get("subject_uid") or "")
+                            for ref in refs
+                            if str(ref.get("subject_uid") or "").startswith("met_")
+                        }
+                        | {
+                            str(ref.get("object_uid") or "")
+                            for ref in refs
+                            if str(ref.get("object_uid") or "").startswith("met_")
+                        }
+                    )[:10]
+                confidence_source = (
+                    row.get("calibrated_confidence")
+                    if row.get("calibrated_confidence") is not None
+                    else row.get("path_confidence")
+                    if row.get("path_confidence") is not None
+                    else row.get("max_p_literature")
+                )
+                confidence = min(0.25, clamp_unit(confidence_source if confidence_source is not None else 0.05))
+                chain_id = content_hash(
+                    {
+                        "chain_type": "ranking_evidence_fallback",
+                        "section": section,
+                        "terminal_uid": terminal_uid,
+                        "rank": row.get("rank", 0),
+                        "evidence_ref_uids": claim_refs.get("evidence_ref_uids", []),
+                        "edge_uids": claim_refs.get("edge_uids", []),
+                    }
+                )[:20]
+                chains.append(
+                    {
+                        "chain_id": chain_id,
+                        "path_id": chain_id,
+                        "chain_type": "ranking_evidence_fallback",
+                        "is_fallback_chain": True,
+                        "source_ranking": section,
+                        "source_rank": row.get("rank", 0),
+                        "terminal_node_uid": terminal_uid,
+                        "terminal_node_type": terminal_type,
+                        "terminal_display_name": row.get("display_name", ""),
+                        "node_uids": [*seed_uids[:5], terminal_uid] if seed_uids else [terminal_uid],
+                        "edge_uids": claim_refs.get("edge_uids", []),
+                        "path_confidence": round(confidence, 6),
+                        "score": row.get("score", 0.0),
+                        "score_components": row.get("score_components", {}),
+                        "claim_refs": claim_refs,
+                        "evidence_refs": refs,
+                        "downgrade_reasons": downgrade_reasons,
+                        "boundary": (
+                            "Fallback explanation chain from ranking evidence. It is auditable support for a "
+                            "research-priority row, not a stable stepwise graph path or causal conclusion."
+                        ),
+                    }
+                )
+        return chains
 
     def analysis_pack_literature_summary(self, refs: list[dict[str, Any]]) -> dict[str, Any]:
         literature_refs = [ref for ref in refs if ref.get("ref_type") == "literature_support"]
@@ -11909,11 +12040,20 @@ class MetaboService:
         disease_rankings = self.analysis_pack_ranking_rows(
             diseases, "disease_uid", paths_by_id, features_by_uid, input_summary, context
         )
-        top_paths = [self.analysis_pack_path_row(path) for path in paths[:ANALYSIS_PACK_PATH_LIMIT]]
+        selected_paths = self.select_analysis_pack_top_paths(paths, [pathway_rankings, target_rankings, disease_rankings])
+        top_paths = [self.analysis_pack_path_row(path) for path in selected_paths]
+        fallback_chains = []
+        if not top_paths:
+            fallback_chains = self.analysis_pack_fallback_explanation_chains(
+                pathway_rankings,
+                target_rankings,
+                disease_rankings,
+                input_summary,
+            )
         evidence_refs = self.analysis_pack_dedupe_refs(
             [
                 ref
-                for section in (pathway_rankings, target_rankings, disease_rankings, top_paths)
+                for section in (pathway_rankings, target_rankings, disease_rankings, top_paths, fallback_chains)
                 for row in section
                 for ref in row.get("evidence_refs", [])
             ]
@@ -11950,6 +12090,7 @@ class MetaboService:
             "target_rankings": target_rankings,
             "disease_rankings": disease_rankings,
             "top_explanation_paths": top_paths,
+            "fallback_explanation_chains": fallback_chains,
             "literature_evidence_pack": self.analysis_pack_literature_summary(evidence_refs),
             "evidence_refs": evidence_refs,
             "release": release,
@@ -12141,6 +12282,8 @@ class MetaboService:
             "directional_enrichment": analyzed.get("directional_enrichment", {}),
             "predictions": analyzed.get("predictions", {}),
             "propagation": analyzed.get("propagation", {}),
+            "explanation_paths": analyzed.get("explanation_paths", []),
+            "compressed_explanation_paths": analyzed.get("compressed_explanation_paths", {}),
             "score_notes": {
                 **(analyzed.get("score_notes", {}) or {}),
                 "trait_score_selection": "TraitScore rows are selected by q value and effect size before GCST-to-chemical mapping; outputs are research-prioritization signals, not direct abundance claims.",
@@ -12203,6 +12346,8 @@ class MetaboService:
             "directional_enrichment": analyzed.get("directional_enrichment", {}),
             "predictions": analyzed.get("predictions", {}),
             "propagation": analyzed.get("propagation", {}),
+            "explanation_paths": analyzed.get("explanation_paths", []),
+            "compressed_explanation_paths": analyzed.get("compressed_explanation_paths", {}),
             "score_notes": {
                 **(analyzed.get("score_notes", {}) or {}),
                 "differential_table_selection": (

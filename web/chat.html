@@ -2192,21 +2192,37 @@
 
     function renderPaths(pack) {
       const paths = asArray(pack?.top_explanation_paths).slice(0, 5);
-      if (!paths.length) return "";
-      return `<div class="section"><h3>最短图谱路径（探索性）</h3><div class="tagline">这里展示的是图中代价较低的可追溯路径，不等同于本次输入最核心的生物学结论。</div><div class="list">${
-        paths.map((path, index) => {
-          const label = path.terminal_display_name || path.terminal_node_uid || `path_${index + 1}`;
-          const nodes = asArray(path.node_uids).slice(0, 6).join(" → ");
-          const edgeCount = asArray(path.edge_uids).length;
-          const evidenceButton = renderEvidenceButton(`解释路径：${label}`, evidenceRequestFromRefs(path.evidence_refs, path.terminal_node_uid), "查看路径证据");
-          const reportId = registerLocalReport("path", `解释路径：${label}`, {path, label});
-          return `<div class="item">
-            <div class="topline"><span>${escapeHtml(index + 1)}. ${escapeHtml(label)}</span><span>${scoreText(path.path_confidence)}</span></div>
-            <div class="tagline">${escapeHtml(nodes)}${nodes ? " · " : ""}${edgeCount} 条边 · ${traceBadge(path.claim_refs)}</div>
-            <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
-          </div>`;
-        }).join("")
-      }</div></div>`;
+      const fallbackChains = asArray(pack?.fallback_explanation_chains).slice(0, 5);
+      if (!paths.length && !fallbackChains.length) return "";
+      const pathItems = paths.map((path, index) => {
+        const label = path.terminal_display_name || path.terminal_node_uid || `path_${index + 1}`;
+        const nodes = asArray(path.node_uids).slice(0, 6).join(" → ");
+        const edgeCount = asArray(path.edge_uids).length;
+        const evidenceButton = renderEvidenceButton(`解释路径：${label}`, evidenceRequestFromRefs(path.evidence_refs, path.terminal_node_uid), "查看路径证据");
+        const reportId = registerLocalReport("path", `解释路径：${label}`, {path, label});
+        return `<div class="item">
+          <div class="topline"><span>${escapeHtml(index + 1)}. ${escapeHtml(label)}</span><span>${scoreText(path.path_confidence)}</span></div>
+          <div class="tagline">${escapeHtml(nodes)}${nodes ? " · " : ""}${edgeCount} 条边 · ${traceBadge(path.claim_refs)}</div>
+          <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
+        </div>`;
+      });
+      const fallbackItems = fallbackChains.map((chain, index) => {
+        const label = chain.terminal_display_name || chain.terminal_node_uid || `chain_${index + 1}`;
+        const nodes = asArray(chain.node_uids).slice(0, 6).join(" → ");
+        const reasons = asArray(chain.downgrade_reasons).slice(0, 3).join(" · ");
+        const evidenceButton = renderEvidenceButton(`排序证据链：${label}`, evidenceRequestFromRefs(chain.evidence_refs, chain.terminal_node_uid), "查看证据");
+        const reportId = registerLocalReport("fallback_chain", `排序证据链：${label}`, {chain, label});
+        return `<div class="item">
+          <div class="topline"><span>${escapeHtml(index + 1)}. ${escapeHtml(label)}</span><span>${scoreText(chain.path_confidence)}</span></div>
+          <div class="tagline">${escapeHtml(chain.source_ranking || "ranking")} rank ${escapeHtml(chain.source_rank || "")} · ${escapeHtml(nodes)}${nodes ? " · " : ""}${traceBadge(chain.claim_refs)}</div>
+          <div class="tagline">${escapeHtml(chain.boundary || "低置信排序证据链，不是稳定逐跳图谱路径。")}${reasons ? ` · ${escapeHtml(reasons)}` : ""}</div>
+          <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
+        </div>`;
+      });
+      const intro = paths.length
+        ? "这里展示的是图中代价较低的可追溯路径，不等同于本次输入最核心的生物学结论。"
+        : "本次没有稳定逐跳图谱路径；下面改用排序证据链说明可审计来源，置信度按探索性处理。";
+      return `<div class="section"><h3>${paths.length ? "最短图谱路径（探索性）" : "排序证据链（低置信 fallback）"}</h3><div class="tagline">${intro}</div><div class="list">${[...pathItems, ...fallbackItems].join("")}</div></div>`;
     }
 
     function renderPredictions(predictions) {
