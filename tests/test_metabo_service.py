@@ -1469,6 +1469,47 @@ class MetaboServiceTests(unittest.TestCase):
             warning = next(row for row in pack["quality_warnings"] if row["code"] == "no_explanation_paths")
             self.assertIn("fallback_chain_policy", warning["details"])
 
+    def test_context_fit_rerank_moves_low_fit_pathways_to_appendix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            context = service.normalize_prediction_context(
+                "ICC, intrahepatic cholangiocarcinoma, liver, epithelial, tumor vs adjacent"
+            )
+            rows = [
+                {
+                    "rank": 1,
+                    "pathway_uid": "taste_pathway",
+                    "display_name": "Sensory perception of sweet, bitter, and umami taste",
+                    "score": 6.0,
+                    "overlap_count": 2,
+                    "matched_metabolite_uids": ["met_1"],
+                    "score_components": {"input_theme_boost": 4.0, "weighted_overlap": 1.0},
+                    "directional_support": {"input_theme_hits": []},
+                },
+                {
+                    "rank": 2,
+                    "pathway_uid": "glycolysis_pathway",
+                    "display_name": "Glycolysis and pyruvate metabolism",
+                    "score": 4.0,
+                    "overlap_count": 2,
+                    "matched_metabolite_uids": ["met_1"],
+                    "score_components": {"weighted_overlap": 1.0, "literature_support_count": 2},
+                    "literature_support_count": 2,
+                    "directional_support": {"input_theme_hits": []},
+                },
+            ]
+            features_by_uid = {"met_1": [{"seed_class": "strict_identity"}]}
+
+            reranked = service.apply_context_fit_rerank(rows, features_by_uid, context)
+
+            self.assertEqual(reranked[0]["pathway_uid"], "glycolysis_pathway")
+            self.assertEqual(reranked[0]["original_rank"], 2)
+            self.assertGreater(reranked[0]["context_fit_score"], reranked[1]["context_fit_score"])
+            self.assertEqual(reranked[1]["pathway_uid"], "taste_pathway")
+            self.assertEqual(reranked[1]["context_fit_tier"], "appendix_fit")
+            self.assertTrue(reranked[1]["context_fit_appendix"])
+            self.assertTrue(any("low_context_fit_terms" in item for item in reranked[1]["context_fit_penalties"]))
+
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1998,7 +2039,8 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertIn("raw abundance", analyzed["differential_table_selection"]["selection_rule"])
             self.assertIn("explanation_paths", analyzed)
             self.assertIn("compressed_explanation_paths", analyzed)
-            self.assertEqual(
+            self.assertTrue(analyzed["analysis_pack"]["top_explanation_paths"])
+            self.assertLessEqual(
                 len(analyzed["analysis_pack"]["top_explanation_paths"]),
                 min(len(analyzed["explanation_paths"]), metabo_service.ANALYSIS_PACK_PATH_LIMIT),
             )

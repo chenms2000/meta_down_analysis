@@ -119,6 +119,60 @@ DEFAULT_MIN_LITERATURE_OVERLAY_PROB = 0.65
 DEFAULT_MAX_PREDICTION_ROWS = 10
 ANALYSIS_PACK_CONTRACT_VERSION = "analysis_pack.v1"
 DATABASE_ACCURACY_CONTRACT_VERSION = "database_accuracy_store.v2"
+CONTEXT_FIT_POSITIVE_PATHWAY_TERMS = (
+    "glycolysis",
+    "gluconeogenesis",
+    "glucose",
+    "glutamate",
+    "glutamine",
+    "pyruvate",
+    "lactate",
+    "monocarboxylate",
+    "organic anion",
+    "cysteine",
+    "homocysteine",
+    "redox",
+    "tca",
+    "citrate",
+    "malate",
+    "mitochondrial",
+    "transport",
+    "bile",
+    "bile acid",
+    "sphingolipid",
+    "lipid",
+    "fatty acid",
+    "amino acid",
+)
+CONTEXT_FIT_LOW_FIT_PATHWAY_TERMS = (
+    "taste",
+    "bitter",
+    "umami",
+    "gustatory",
+    "pheromone",
+    "neurotransmitter",
+    "neuronal",
+    "neuron",
+    "gip",
+    "insulinotropic",
+    "congenital",
+    "defective",
+    "syndrome",
+    "adme",
+)
+CONTEXT_FIT_TUMOR_TERMS = (
+    "tumor",
+    "tumour",
+    "cancer",
+    "carcinoma",
+    "cholangiocarcinoma",
+    "icc",
+    "liver",
+    "hepatic",
+    "bile duct",
+    "epithelial",
+    "epi",
+)
 PREDICTION_PACK_CONTRACT_VERSION = "prediction_pack.v1"
 INTERPRETATION_REPORT_CONTRACT_VERSION = "interpretation_report.v1"
 CONCLUSION_EVALUATION_CONTRACT_VERSION = "conclusion_evaluation.v1"
@@ -8042,6 +8096,166 @@ class MetaboService:
         disease_model_terms = ("defective", "causes", "syndrome", "deficiency")
         return 0.75 if any(term in pathway_name for term in disease_model_terms) else 0.0
 
+    def pathway_context_fit_profile(
+        self,
+        row: dict[str, Any],
+        features_by_uid: dict[str, list[dict[str, Any]]],
+        context: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        context_terms = set(context.get("terms") or [])
+        context_text = " ".join(sorted(context_terms))
+        has_context = bool(context_terms)
+        pathway_name = normalize_lookup_key(row.get("display_name") or row.get("name") or "")
+        score_components = row.get("score_components") or {}
+        directional = row.get("directional_support") or {}
+        matched_uids = row.get("matched_metabolite_uids") or []
+        seed_classes = Counter()
+        strict_support = 0
+        ratio_support = 0
+        expanded_support = 0
+        for uid in matched_uids:
+            classes = {str(feature.get("seed_class") or "strict_identity") for feature in features_by_uid.get(uid, [])}
+            if not classes and uid:
+                classes = {"strict_identity"}
+            for seed_class in classes:
+                seed_classes[seed_class] += 1
+            if "strict_identity" in classes:
+                strict_support += 1
+            if "ratio_component" in classes:
+                ratio_support += 1
+            if classes - {"strict_identity"}:
+                expanded_support += 1
+
+        overlap = int(row.get("overlap_count") or score_components.get("overlap_count") or 0)
+        weighted_overlap = float(score_components.get("weighted_overlap") or row.get("weighted_overlap") or 0.0)
+        literature_count = int(row.get("literature_support_count") or score_components.get("literature_support_count") or 0)
+        fit_reasons: list[str] = []
+        fit_penalties: list[str] = []
+        positive_terms = [
+            term
+            for term in CONTEXT_FIT_POSITIVE_PATHWAY_TERMS
+            if normalized_text_has_term(pathway_name, normalize_lookup_key(term))
+        ]
+        low_fit_terms = [
+            term
+            for term in CONTEXT_FIT_LOW_FIT_PATHWAY_TERMS
+            if normalized_text_has_term(pathway_name, normalize_lookup_key(term))
+        ]
+        context_specific_terms = [
+            term
+            for term in CONTEXT_FIT_TUMOR_TERMS
+            if normalized_text_has_term(pathway_name, normalize_lookup_key(term))
+            or (has_context and normalized_text_has_term(context_text, normalize_lookup_key(term)))
+        ]
+        input_theme_hits = directional.get("input_theme_hits") or []
+        context_vector = context.get("context_vector") or {}
+        context_theme_hits = [
+            hit.get("theme_id")
+            for hit in input_theme_hits
+            if hit.get("theme_id") and float(context_vector.get(str(hit.get("theme_id"))) or 0.0) > 0.0
+        ]
+
+        support_score = min(0.42, 0.08 * strict_support + 0.04 * max(0, overlap - strict_support) + 0.03 * weighted_overlap)
+        evidence_score = min(0.16, 0.025 * literature_count)
+        pathway_relevance = min(0.22, 0.055 * len(set(positive_terms)) + 0.05 * len(set(context_theme_hits)))
+        context_bonus = 0.0
+        if has_context:
+            if positive_terms:
+                context_bonus += 0.08
+                fit_reasons.append("metabolic_pathway_matches_analysis_goal")
+            if context_theme_hits:
+                context_bonus += min(0.12, 0.04 * len(set(context_theme_hits)))
+                fit_reasons.append("context_theme_matches_input_terms")
+            if any(term in context_text for term in ("tumor", "tumour", "cancer", "carcinoma", "cholangiocarcinoma", "icc")):
+                if any(term in pathway_name for term in ("glycolysis", "glutamine", "glutamate", "pyruvate", "lactate", "transport", "redox")):
+                    context_bonus += 0.08
+                    fit_reasons.append("tumor_metabolism_context_compatible")
+            if any(term in context_text for term in ("liver", "hepatic", "bile", "cholangiocarcinoma", "icc")):
+                if any(term in pathway_name for term in ("bile", "organic anion", "transport", "glutamate", "glutamine", "cysteine", "homocysteine")):
+                    context_bonus += 0.06
+                    fit_reasons.append("liver_biliary_context_compatible")
+            if any(term in context_text for term in ("epithelial", "epi")):
+                if any(term in pathway_name for term in ("transport", "membrane", "sphingolipid", "glycolysis")):
+                    context_bonus += 0.05
+                    fit_reasons.append("epithelial_context_compatible")
+        else:
+            fit_reasons.append("generalized_mode_no_user_context")
+
+        penalty = 0.0
+        if low_fit_terms and has_context:
+            penalty += 0.28 + 0.04 * min(3, len(set(low_fit_terms)))
+            fit_penalties.append("low_context_fit_terms:" + ",".join(sorted(set(low_fit_terms))[:5]))
+        if overlap <= 0:
+            penalty += 0.18
+            fit_penalties.append("no_direct_input_overlap")
+        if strict_support <= 0 and expanded_support > 0:
+            penalty += 0.14
+            fit_penalties.append("expanded_seed_only")
+        if ratio_support and ratio_support >= max(1, overlap):
+            penalty += 0.12
+            fit_penalties.append("ratio_component_dominant")
+        if score_components.get("input_theme_boost") and overlap <= 1 and strict_support <= 1:
+            penalty += 0.1
+            fit_penalties.append("theme_boost_low_direct_support")
+
+        raw_fit = 0.18 + support_score + evidence_score + pathway_relevance + min(0.26, context_bonus) - penalty
+        fit_score = round(clamp_unit(raw_fit), 6)
+        if fit_score >= 0.68:
+            tier = "high_fit"
+        elif fit_score >= 0.45:
+            tier = "medium_fit"
+        elif fit_score >= 0.25:
+            tier = "low_fit"
+        else:
+            tier = "appendix_fit"
+        appendix = tier == "appendix_fit" or ("low_context_fit_terms:" in ";".join(fit_penalties) and fit_score < 0.45)
+        if appendix:
+            tier = "appendix_fit"
+        if not fit_reasons and (strict_support or overlap):
+            fit_reasons.append("direct_input_support")
+        return {
+            "context_fit_score": fit_score,
+            "context_fit_tier": tier,
+            "context_fit_reasons": fit_reasons[:8],
+            "context_fit_penalties": fit_penalties[:8],
+            "context_fit_appendix": appendix,
+            "context_fit_seed_classes": dict(sorted(seed_classes.items())),
+            "context_fit_positive_terms": sorted(set(positive_terms))[:8],
+            "context_fit_low_fit_terms": sorted(set(low_fit_terms))[:8],
+            "context_fit_mode": "context_aware" if has_context else "generalized",
+        }
+
+    def apply_context_fit_rerank(
+        self,
+        pathway_rankings: list[dict[str, Any]],
+        features_by_uid: dict[str, list[dict[str, Any]]],
+        context: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        if not pathway_rankings:
+            return pathway_rankings
+        if not (context or {}).get("has_context"):
+            for row in pathway_rankings:
+                row.setdefault("context_fit_mode", "generalized")
+            return pathway_rankings
+        fitted = []
+        for index, row in enumerate(pathway_rankings, start=1):
+            row["original_rank"] = row.get("rank", index)
+            row["original_score"] = row.get("score", 0.0)
+            row.update(self.pathway_context_fit_profile(row, features_by_uid, context))
+            fitted.append(row)
+        fitted.sort(
+            key=lambda row: (
+                bool(row.get("context_fit_appendix")),
+                -float(row.get("context_fit_score") or 0.0),
+                int(row.get("original_rank") or 9999),
+                str(row.get("pathway_uid") or ""),
+            )
+        )
+        for rank, row in enumerate(fitted, start=1):
+            row["rank"] = rank
+        return fitted
+
     def disease_or_model_specific_result(self, display: Any, result_type: str = "") -> dict[str, Any]:
         normalized = normalize_lookup_key(display)
         disease_terms = (
@@ -10694,6 +10908,16 @@ class MetaboService:
 
         for rows in ranking_sections:
             for row in rows[:limit]:
+                if row.get("context_fit_appendix"):
+                    continue
+                add_path(paths_by_id.get(str(row.get("best_path_id") or "")))
+                if len(selected) >= limit:
+                    return selected
+        context_fit_mode = any("context_fit_appendix" in row for rows in ranking_sections for row in rows[:limit])
+        if selected and context_fit_mode:
+            return selected
+        for rows in ranking_sections:
+            for row in rows[:limit]:
                 add_path(paths_by_id.get(str(row.get("best_path_id") or "")))
                 if len(selected) >= limit:
                     return selected
@@ -12034,6 +12258,7 @@ class MetaboService:
         pathway_rankings = self.analysis_pack_ranking_rows(
             pathways, "pathway_uid", paths_by_id, features_by_uid, input_summary, context
         )
+        pathway_rankings = self.apply_context_fit_rerank(pathway_rankings, features_by_uid, context)
         target_rankings = self.analysis_pack_ranking_rows(
             targets, "target_uid", paths_by_id, features_by_uid, input_summary, context
         )
@@ -13449,6 +13674,21 @@ def load_context_arg(path_or_json: str) -> Any:
     return {"context_terms": stripped}
 
 
+def load_cli_context(args: argparse.Namespace) -> Any:
+    base = load_context_arg(getattr(args, "context_json", ""))
+    context_terms = str(getattr(args, "context_terms", "") or "").strip()
+    if not context_terms:
+        return base
+    if isinstance(base, dict):
+        merged = dict(base)
+        existing = merged.get("context_terms", [])
+        merged["context_terms"] = dedupe_preserve_order([*prediction_terms_from_value(existing), context_terms])
+        return merged
+    if base:
+        return {"context_terms": dedupe_preserve_order([*prediction_terms_from_value(base), context_terms])}
+    return {"context_terms": context_terms}
+
+
 def compact_precheck_summary(precheck: dict[str, Any]) -> dict[str, Any]:
     input_normalization = precheck.get("input_normalization") or {}
     expanded_summary = precheck.get("expanded_summary") or {}
@@ -13545,6 +13785,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     analyze_parser.add_argument("--max-paths", type=int, default=DEFAULT_MAX_PATHS)
     analyze_parser.add_argument("--max-hops", type=int, default=DEFAULT_MAX_HOPS)
     analyze_parser.add_argument("--context-json", default="")
+    analyze_parser.add_argument("--context-terms", default="", help="Comma/semicolon separated analysis background keywords.")
     analyze_parser.add_argument("--context-mode", default="soft", choices=["soft", "hard"])
 
     trait_score_parser = subparsers.add_parser("analyze-trait-score")
@@ -13552,6 +13793,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     trait_score_parser.add_argument("--max-paths", type=int, default=DEFAULT_MAX_PATHS)
     trait_score_parser.add_argument("--max-hops", type=int, default=DEFAULT_MAX_HOPS)
     trait_score_parser.add_argument("--context-json", default="")
+    trait_score_parser.add_argument("--context-terms", default="", help="Comma/semicolon separated analysis background keywords.")
     trait_score_parser.add_argument("--context-mode", default="soft", choices=["soft", "hard"])
     trait_score_parser.add_argument("--q-threshold", type=float, default=0.05)
     trait_score_parser.add_argument("--no-q-threshold", action="store_true")
@@ -13564,6 +13806,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     differential_parser.add_argument("--max-paths", type=int, default=DEFAULT_MAX_PATHS)
     differential_parser.add_argument("--max-hops", type=int, default=DEFAULT_MAX_HOPS)
     differential_parser.add_argument("--context-json", default="")
+    differential_parser.add_argument("--context-terms", default="", help="Comma/semicolon separated analysis background keywords.")
     differential_parser.add_argument("--context-mode", default="soft", choices=["soft", "hard"])
     differential_parser.add_argument("--q-threshold", type=float, default=0.05)
     differential_parser.add_argument("--no-q-threshold", action="store_true")
@@ -13577,6 +13820,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     predict_parser.add_argument("--max-paths", type=int, default=DEFAULT_MAX_PATHS)
     predict_parser.add_argument("--max-hops", type=int, default=DEFAULT_MAX_HOPS)
     predict_parser.add_argument("--context-json", default="")
+    predict_parser.add_argument("--context-terms", default="", help="Comma/semicolon separated analysis background keywords.")
     predict_parser.add_argument("--context-mode", default="soft", choices=["soft", "hard"])
 
     explain_parser = subparsers.add_parser("explain")
@@ -13585,6 +13829,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     explain_parser.add_argument("--max-paths", type=int, default=DEFAULT_MAX_PATHS)
     explain_parser.add_argument("--max-hops", type=int, default=DEFAULT_MAX_HOPS)
     explain_parser.add_argument("--context-json", default="")
+    explain_parser.add_argument("--context-terms", default="", help="Comma/semicolon separated analysis background keywords.")
     explain_parser.add_argument("--context-mode", default="soft", choices=["soft", "hard"])
     explain_parser.add_argument("--evidence-limit", type=int, default=DEFAULT_MAX_EVIDENCE_ITEMS)
     explain_parser.add_argument("--subgraph-max-hops", type=int, default=1)
@@ -13651,7 +13896,7 @@ def main(argv: list[str] | None = None) -> int:
             load_records_arg(args.records_json),
             max_paths=args.max_paths,
             max_hops=args.max_hops,
-            context=load_context_arg(args.context_json),
+            context=load_cli_context(args),
             context_mode=args.context_mode,
         )
     elif args.command == "analyze-trait-score":
@@ -13659,7 +13904,7 @@ def main(argv: list[str] | None = None) -> int:
             load_records_arg(args.records_json),
             max_paths=args.max_paths,
             max_hops=args.max_hops,
-            context=load_context_arg(args.context_json),
+            context=load_cli_context(args),
             context_mode=args.context_mode,
             q_threshold=None if args.no_q_threshold else args.q_threshold,
             min_abs_effect=args.min_abs_effect,
@@ -13671,7 +13916,7 @@ def main(argv: list[str] | None = None) -> int:
             load_records_arg(args.records_json),
             max_paths=args.max_paths,
             max_hops=args.max_hops,
-            context=load_context_arg(args.context_json),
+            context=load_cli_context(args),
             context_mode=args.context_mode,
             q_threshold=None if args.no_q_threshold else args.q_threshold,
             p_threshold=args.p_threshold,
@@ -13684,7 +13929,7 @@ def main(argv: list[str] | None = None) -> int:
             load_records_arg(args.records_json),
             max_paths=args.max_paths,
             max_hops=args.max_hops,
-            context=load_context_arg(args.context_json),
+            context=load_cli_context(args),
             context_mode=args.context_mode,
         )
         output = service.response_envelope(
@@ -13693,7 +13938,7 @@ def main(argv: list[str] | None = None) -> int:
                 "records": load_records_arg(args.records_json),
                 "max_paths": args.max_paths,
                 "max_hops": args.max_hops,
-                "context": load_context_arg(args.context_json),
+                "context": load_cli_context(args),
                 "context_mode": args.context_mode,
             },
             {"predictions": analyzed.get("predictions", {})},
@@ -13708,7 +13953,7 @@ def main(argv: list[str] | None = None) -> int:
             subgraph_max_hops=args.subgraph_max_hops,
             adapter_backend=args.adapter_backend,
             include_input_pack=args.include_input_pack,
-            context=load_context_arg(args.context_json),
+            context=load_cli_context(args),
             context_mode=args.context_mode,
         )
     elif args.command == "entity":

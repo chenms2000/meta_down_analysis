@@ -1120,7 +1120,7 @@
             <div class="compact-grid">
               <label class="input-shell">
                 背景 JSON 或关键词
-                <input id="context" type="text" placeholder='{"cancer_type":"...","tissue":"..."}'>
+                <input id="context" type="text" placeholder="例如：ICC, intrahepatic cholangiocarcinoma, liver, epithelial, tumor vs adjacent">
               </label>
             <label>
               背景模式
@@ -1131,7 +1131,7 @@
             </label>
             </div>
 
-            <span class="hint">备注：背景可以写成 JSON，也可以只写关键词；不填背景也可以运行。</span>
+            <span class="hint">正式 CSV 如果不含组织/癌种/细胞类型，建议填写关键词；背景只影响贴合度重排和解释边界，不会写入图谱事实。</span>
           </div>
 
           <div class="form-section">
@@ -2172,18 +2172,25 @@
           const uid = row.primary_external_id || row[idKey] || "";
           const score = Number((row.calibrated_confidence ?? row.score) || 0);
           const refs = [
+            row.context_fit_tier ? `fit ${row.context_fit_tier}` : "",
+            row.context_fit_score !== undefined ? `fit_score ${scoreText(row.context_fit_score)}` : "",
             row.confidence_tier ? `confidence ${row.confidence_tier}` : "",
             row.calibration_status ? `calibration ${row.calibration_status}` : "",
             row.max_p_literature ? `文献概率 ${scoreText(row.max_p_literature)}` : "",
             asArray(row.supported_pmids).length ? `PMID ${asArray(row.supported_pmids).slice(0, 3).join(", ")}` : "",
             asArray(row.support_classes).length ? asArray(row.support_classes).join(", ") : ""
           ].filter(Boolean).join(" · ");
+          const fitReasons = [
+            ...asArray(row.context_fit_reasons).slice(0, 3).map((item) => `+ ${item}`),
+            ...asArray(row.context_fit_penalties).slice(0, 3).map((item) => `- ${item}`)
+          ].join(" · ");
           const evidenceButton = renderEvidenceButton(`${title}：${name}`, evidenceRequestForRow(row, idKey), "查看证据");
           const reportId = registerLocalReport("ranking", `${title}：${name}`, {title, idKey, row});
           return `<div class="item">
             <div class="topline"><span>${escapeHtml(row.rank || index + 1)}. ${escapeHtml(name)}</span><span>${scoreText(score)}</span></div>
             <div class="bar" aria-hidden="true"><span style="--w:${percentWidth(score, maxScore)}%"></span></div>
             <div class="tagline">${escapeHtml(uid)} ${uid ? "·" : ""} ${traceBadge(row.claim_refs)}${refs ? ` · ${escapeHtml(refs)}` : ""}</div>
+            ${fitReasons ? `<div class="tagline">${escapeHtml(fitReasons)}</div>` : ""}
             <div class="evidence-action-row">${evidenceButton || ""}<button type="button" class="ghost inline-action" data-local-report="${escapeHtml(reportId)}">生成局部报告</button></div>
           </div>`;
         }).join("")
