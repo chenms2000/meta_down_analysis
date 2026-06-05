@@ -1658,6 +1658,27 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertTrue(melanoma["context_fit_appendix"])
             self.assertTrue(any("different_cancer_context" in item for item in melanoma["context_fit_penalties"]))
 
+    def test_context_groups_cover_traitscore_batch_cancers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            cases = {
+                "cervical cancer": "cervical",
+                "colorectal cancer": "colorectal",
+                "cutaneous squamous cell carcinoma": "skin_squamous",
+                "esophageal cancer": "esophageal",
+                "hepatocellular carcinoma": "liver",
+                "head and neck squamous cell carcinoma": "head_neck",
+                "intrahepatic cholangiocarcinoma": "cholangiocarcinoma",
+                "chromophobe renal cell carcinoma": "renal",
+                "clear cell renal cell carcinoma": "renal",
+                "lung adenocarcinoma": "lung",
+                "ovarian cancer": "ovarian",
+                "gastric cancer": "gastric",
+                "thyroid cancer": "thyroid",
+            }
+            for text, expected_group in cases.items():
+                self.assertIn(expected_group, service.context_cancer_groups(text), text)
+
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

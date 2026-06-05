@@ -850,8 +850,11 @@ CANCER_CONTEXT_GROUPS = {
     "melanoma": ("melanoma",),
     "ovarian": ("ovarian cancer", "epithelial ovarian cancer", "ovary cancer", "ovarian", "ovary"),
     "prostate": ("prostate cancer", "prostatic carcinoma", "prostate"),
+    "cervical": ("cervical cancer", "cervical carcinoma", "cervix", "cesc"),
     "breast": ("breast cancer", "brca", "tnbc", "triple negative breast"),
     "lung": ("lung cancer", "lung adenocarcinoma", "luad", "lusc"),
+    "esophageal": ("esophageal cancer", "esophageal carcinoma", "esophageal squamous cell carcinoma", "esca", "esophagus"),
+    "gastric": ("gastric cancer", "stomach cancer", "gastric carcinoma", "stad", "stomach"),
     "head_neck": (
         "head and neck squamous cell carcinoma",
         "head and neck cancer",
@@ -862,9 +865,11 @@ CANCER_CONTEXT_GROUPS = {
         "oropharyngeal cancer",
         "laryngeal cancer",
     ),
+    "renal": ("renal cell carcinoma", "kidney cancer", "renal carcinoma", "clear cell renal cell carcinoma", "chromophobe renal cell carcinoma", "kirc", "kich", "kidney", "renal"),
     "liver": ("hepatocellular carcinoma", "hcc", "liver cancer", "hepatocellular"),
     "cholangiocarcinoma": ("cholangiocarcinoma", "intrahepatic cholangiocarcinoma", "icc", "bile duct cancer"),
     "skin_squamous": ("cutaneous squamous cell carcinoma", "cscc"),
+    "thyroid": ("thyroid cancer", "thyroid carcinoma", "papillary thyroid carcinoma", "thca", "thyroid"),
 }
 
 EPITHELIAL_CONTEXT_TERMS = ("epithelial", "epithelium", "barrier", "mucosal", "intestinal", "colon", "airway", "ovary", "ovarian")
