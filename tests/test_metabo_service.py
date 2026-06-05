@@ -1633,6 +1633,31 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertIn("tumor metabolism", context["fields"]["analysis_goal"])
             self.assertIn("tumor metabolism", context["terms"])
 
+    def test_head_neck_context_group_flags_wrong_cancer_diseases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            context = service.normalize_prediction_context(
+                {
+                    "cancer_type": "head and neck squamous cell carcinoma",
+                    "tissue": "head and neck",
+                    "cell_type": "epithelial",
+                    "comparison": "tumor vs adjacent",
+                    "analysis_goal": "tumor metabolism",
+                }
+            )
+            hnsc = service.ranking_context_fit_profile({"display_name": "head and neck squamous cell carcinoma"}, "disease_uid", context)
+            oral = service.ranking_context_fit_profile({"display_name": "oral cavity squamous cell carcinoma"}, "disease_uid", context)
+            esophageal = service.ranking_context_fit_profile({"display_name": "esophageal squamous cell carcinoma"}, "disease_uid", context)
+            melanoma = service.ranking_context_fit_profile({"display_name": "melanoma"}, "disease_uid", context)
+
+            self.assertIn("head_neck", hnsc["context_fit_display_groups"])
+            self.assertIn("cancer_context_group_matches", hnsc["context_fit_reasons"])
+            self.assertIn("head_neck", oral["context_fit_display_groups"])
+            self.assertTrue(esophageal["context_fit_appendix"])
+            self.assertNotIn("cancer_context_group_matches", esophageal["context_fit_reasons"])
+            self.assertTrue(melanoma["context_fit_appendix"])
+            self.assertTrue(any("different_cancer_context" in item for item in melanoma["context_fit_penalties"]))
+
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

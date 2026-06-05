@@ -852,9 +852,19 @@ CANCER_CONTEXT_GROUPS = {
     "prostate": ("prostate cancer", "prostatic carcinoma", "prostate"),
     "breast": ("breast cancer", "brca", "tnbc", "triple negative breast"),
     "lung": ("lung cancer", "lung adenocarcinoma", "luad", "lusc"),
+    "head_neck": (
+        "head and neck squamous cell carcinoma",
+        "head and neck cancer",
+        "hnsc",
+        "oral cavity squamous cell carcinoma",
+        "nasopharyngeal carcinoma",
+        "oral squamous cell carcinoma",
+        "oropharyngeal cancer",
+        "laryngeal cancer",
+    ),
     "liver": ("hepatocellular carcinoma", "hcc", "liver cancer", "hepatocellular"),
     "cholangiocarcinoma": ("cholangiocarcinoma", "intrahepatic cholangiocarcinoma", "icc", "bile duct cancer"),
-    "skin_squamous": ("cutaneous squamous cell carcinoma", "cscc", "squamous cell carcinoma"),
+    "skin_squamous": ("cutaneous squamous cell carcinoma", "cscc"),
 }
 
 EPITHELIAL_CONTEXT_TERMS = ("epithelial", "epithelium", "barrier", "mucosal", "intestinal", "colon", "airway", "ovary", "ovarian")
@@ -874,7 +884,7 @@ DRUG_OVERLAY_DOWNGRADE_TERMS = (
     "broad inhibitor",
 )
 
-GENERIC_CONTEXT_FIT_TERMS = {"cancer", "tumor", "tumour", "metabolism", "metabolic", "cells", "cell"}
+GENERIC_CONTEXT_FIT_TERMS = {"cancer", "carcinoma", "squamous", "tumor", "tumour", "metabolism", "metabolic", "cells", "cell"}
 
 GENERIC_PATHWAY_TERMS = (
     "transcription",
@@ -8298,7 +8308,7 @@ class MetaboService:
                 continue
             if len(normalized_term.replace(" ", "")) < min_len:
                 continue
-            if normalized_text_has_term(normalized, normalized_term) or normalized_text_has_term(normalized_term, normalized):
+            if normalized_text_has_term(normalized, normalized_term):
                 hits.append(normalized_term)
         return sorted(set(hits))
 
