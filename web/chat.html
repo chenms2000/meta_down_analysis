@@ -2158,8 +2158,8 @@
       return `<div class="section"><h3>文献证据包</h3><div class="grid3">
         <div class="item"><div class="topline"><span>支持关系</span>${badge(evidence.support_count ?? 0, "info")}</div><div class="tagline">去重后的文献支持关系数</div></div>
         <div class="item"><div class="topline"><span>最高文献概率</span>${badge(scoreText(evidence.max_p_literature), "info")}</div><div class="tagline">来自句级证据聚合</div></div>
-        <div class="item"><div class="topline"><span>支持类别</span>${badge(classes.length || 0, "info")}</div><div class="tagline">${escapeHtml(classes.join(", ") || "暂无")}</div></div>
-      </div>${pmids.length ? `<div class="tagline">PMID：${escapeHtml(pmids.slice(0, 18).join(", "))}${pmids.length > 18 ? " ..." : ""}</div>` : ""}${evidenceActions ? `<div class="evidence-action-row">${evidenceActions}</div>` : ""}</div>`;
+        <div class="item"><div class="topline"><span>最高 context relevance</span>${badge(scoreText(evidence.max_context_relevance), "info")}</div><div class="tagline">BiomedBERT relevance 与关键词命中重排</div></div>
+      </div>${classes.length ? `<div class="tagline">支持类别：${escapeHtml(classes.join(", "))}</div>` : ""}${pmids.length ? `<div class="tagline">PMID：${escapeHtml(pmids.slice(0, 18).join(", "))}${pmids.length > 18 ? " ..." : ""}</div>` : ""}${evidenceActions ? `<div class="evidence-action-row">${evidenceActions}</div>` : ""}</div>`;
     }
 
     function renderRanking(title, rows, idKey, note = "") {
@@ -2242,6 +2242,8 @@
         const targets = asArray(row.matched_targets).map((target) => target.display_name || target.target_uid).filter(Boolean).join(", ");
         const parts = [
           `display_confidence ${row.display_confidence || row.confidence || "low"}`,
+          row.context_fit_tier ? `fit ${row.context_fit_tier}` : "",
+          row.context_fit_score !== undefined ? `fit_score ${scoreText(row.context_fit_score)}` : "",
           row.raw_overlay_score !== undefined ? `raw_overlay_score ${scoreText(row.raw_overlay_score)}` : "",
           row.downgrade_reason ? `downgrade ${row.downgrade_reason}` : "",
           targets ? `targets ${targets}` : ""

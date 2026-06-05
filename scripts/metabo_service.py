@@ -167,6 +167,9 @@ CONTEXT_FIT_TUMOR_TERMS = (
     "carcinoma",
     "cholangiocarcinoma",
     "icc",
+    "ovarian",
+    "ovary",
+    "ov",
     "liver",
     "hepatic",
     "bile duct",
@@ -845,13 +848,16 @@ CONTEXT_MISMATCH_GROUPS = {
 CANCER_CONTEXT_GROUPS = {
     "colorectal": ("colorectal", "colon cancer", "rectal cancer", "crc", "coad", "read"),
     "melanoma": ("melanoma",),
+    "ovarian": ("ovarian cancer", "epithelial ovarian cancer", "ovary cancer", "ovarian", "ovary"),
+    "prostate": ("prostate cancer", "prostatic carcinoma", "prostate"),
     "breast": ("breast cancer", "brca", "tnbc", "triple negative breast"),
     "lung": ("lung cancer", "lung adenocarcinoma", "luad", "lusc"),
-    "liver": ("hepatocellular carcinoma", "hcc", "liver cancer"),
+    "liver": ("hepatocellular carcinoma", "hcc", "liver cancer", "hepatocellular"),
+    "cholangiocarcinoma": ("cholangiocarcinoma", "intrahepatic cholangiocarcinoma", "icc", "bile duct cancer"),
     "skin_squamous": ("cutaneous squamous cell carcinoma", "cscc", "squamous cell carcinoma"),
 }
 
-EPITHELIAL_CONTEXT_TERMS = ("epithelial", "epithelium", "barrier", "mucosal", "intestinal", "colon", "airway")
+EPITHELIAL_CONTEXT_TERMS = ("epithelial", "epithelium", "barrier", "mucosal", "intestinal", "colon", "airway", "ovary", "ovarian")
 
 DRUG_OVERLAY_DOWNGRADE_TERMS = (
     "sulfuric acid",
@@ -867,6 +873,8 @@ DRUG_OVERLAY_DOWNGRADE_TERMS = (
     "pan inhibitor",
     "broad inhibitor",
 )
+
+GENERIC_CONTEXT_FIT_TERMS = {"cancer", "tumor", "tumour", "metabolism", "metabolic", "cells", "cell"}
 
 GENERIC_PATHWAY_TERMS = (
     "transcription",
@@ -3922,6 +3930,7 @@ class MetaboService:
         self._literature_support_by_edge_uid: dict[str, list[dict[str, Any]]] | None = None
         self._literature_support_by_triple: dict[tuple[str, str, str], list[dict[str, Any]]] | None = None
         self._literature_support_by_entity: dict[str, list[dict[str, Any]]] | None = None
+        self._sentence_relevance_by_uid: dict[str, dict[str, Any]] | None = None
         self._prediction_overlay_cache: dict[str, dict[str, Any]] = {}
         self._european_trait_index: dict[str, dict[str, Any]] | None = None
         self._european_trait_annotation_index: dict[str, dict[str, Any]] | None = None
@@ -4772,6 +4781,8 @@ class MetaboService:
                     "target_score": matched_target.get("score", 0.0),
                     "target_confidence_tier": target_tier,
                     "target_calibrated_confidence": matched_target.get("calibrated_confidence", 0.0),
+                    "target_context_fit_score": matched_target.get("context_fit_score", 0.0),
+                    "target_context_fit_tier": matched_target.get("context_fit_tier", ""),
                     "component_score": round(component_score, 6),
                     "context_match": context_eval,
                     "trace_multiplier": trace_multiplier,
@@ -4841,7 +4852,18 @@ class MetaboService:
                 ],
             }
             predictions.append(candidate)
-        predictions.sort(key=lambda row: (-float(row.get("score") or 0.0), row.get("drug_name", ""), row.get("drug_id", "")))
+        predictions = self.apply_context_fit_rerank(predictions, {}, context, id_key="drug_id")
+        predictions.sort(
+            key=lambda row: (
+                bool(row.get("context_fit_appendix")),
+                -float(row.get("context_fit_score") or 0.0),
+                -float(row.get("score") or 0.0),
+                row.get("drug_name", ""),
+                row.get("drug_id", ""),
+            )
+        )
+        for rank, row in enumerate(predictions, start=1):
+            row["rank"] = rank
         return predictions[: self.config.max_prediction_rows]
 
     def prediction_target_trace_multiplier(self, target: dict[str, Any]) -> float:
@@ -6936,6 +6958,26 @@ class MetaboService:
         self._literature_support_by_triple = dict(by_triple)
         self._literature_support_by_entity = dict(by_entity)
 
+    def load_sentence_relevance(self) -> dict[str, dict[str, Any]]:
+        if self._sentence_relevance_by_uid is not None:
+            return self._sentence_relevance_by_uid
+        path = self.literature_dir / "sentence_relevance.parquet"
+        rows: dict[str, dict[str, Any]] = {}
+        if path.exists():
+            for row in table_rows(path):
+                sentence_uid = str(row.get("sentence_uid") or "")
+                if not sentence_uid:
+                    continue
+                rows[sentence_uid] = {
+                    "sentence_uid": sentence_uid,
+                    "relevance_score": round(float(row.get("relevance_score") or 0.0), 6),
+                    "decision": row.get("decision", ""),
+                    "model_name": row.get("model_name", ""),
+                    "config_hash": row.get("config_hash", ""),
+                }
+        self._sentence_relevance_by_uid = rows
+        return rows
+
     def literature_support_for_edge(self, edge: dict[str, Any], supportive_only: bool = False) -> list[dict[str, Any]]:
         self.load_literature_support()
         by_edge = self._literature_support_by_edge_uid or {}
@@ -8226,30 +8268,183 @@ class MetaboService:
             "context_fit_mode": "context_aware" if has_context else "generalized",
         }
 
+    def context_cancer_groups(self, text_or_terms: Any) -> set[str]:
+        if isinstance(text_or_terms, (list, tuple, set)):
+            terms = [normalize_lookup_key(term) for term in text_or_terms]
+            normalized = " ".join(term for term in terms if term)
+        else:
+            normalized = normalize_lookup_key(text_or_terms)
+        return {
+            group
+            for group, terms in CANCER_CONTEXT_GROUPS.items()
+            if any(normalized_text_has_term(normalized, term) for term in terms)
+        }
+
+    def context_term_hits(self, display_text: str, context_terms: set[str], min_len: int = 4) -> list[str]:
+        normalized = normalize_lookup_key(display_text)
+        hits = []
+        for term in sorted(context_terms):
+            normalized_term = normalize_lookup_key(term)
+            if normalized_term in GENERIC_CONTEXT_FIT_TERMS:
+                continue
+            if len(normalized_term.replace(" ", "")) < min_len:
+                continue
+            if normalized_text_has_term(normalized, normalized_term) or normalized_text_has_term(normalized_term, normalized):
+                hits.append(normalized_term)
+        return sorted(set(hits))
+
+    def ranking_context_fit_profile(
+        self,
+        row: dict[str, Any],
+        id_key: str,
+        context: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        context = context or {}
+        context_terms = set(context.get("terms") or [])
+        has_context = bool(context_terms)
+        display = str(row.get("display_name") or row.get("name") or row.get(id_key) or "")
+        normalized_display = normalize_lookup_key(display)
+        result_type = str(row.get("result_type") or ("disease" if id_key == "disease_uid" else "target"))
+        context_groups = self.context_cancer_groups(context_terms)
+        display_groups = self.context_cancer_groups(normalized_display)
+        direct_context_hits = self.context_term_hits(normalized_display, context_terms)
+        evidence_refs = row.get("evidence_refs") or []
+        context_lit_scores = [
+            float(ref.get("context_relevance_score") or 0.0)
+            for ref in evidence_refs
+            if ref.get("ref_type") == "literature_support" and ref.get("context_relevance_score") is not None
+        ]
+        support_count = int(row.get("input_support_count") or row.get("matched_support_count") or 0)
+        literature_count = int(row.get("literature_support_count") or 0)
+        calibrated = float(row.get("calibrated_confidence") or 0.0)
+        base_score = min(0.34, 0.08 * support_count + 0.04 * min(4, literature_count) + 0.18 * calibrated)
+        literature_context_score = min(0.22, max(context_lit_scores, default=0.0) * 0.22)
+        reasons: list[str] = []
+        penalties: list[str] = []
+        context_bonus = 0.0
+        penalty = 0.0
+
+        if has_context:
+            if direct_context_hits:
+                context_bonus += min(0.24, 0.08 * len(direct_context_hits))
+                reasons.append("display_name_matches_user_context")
+            if display_groups and context_groups and display_groups.intersection(context_groups):
+                context_bonus += 0.28 if result_type == "disease" else 0.14
+                reasons.append("cancer_context_group_matches")
+            elif display_groups and context_groups and not display_groups.intersection(context_groups):
+                penalty += 0.34 if result_type == "disease" else 0.18
+                penalties.append("different_cancer_context:" + ",".join(sorted(display_groups)))
+            if result_type == "disease":
+                generic_cancer = any(
+                    term in normalized_display
+                    for term in ("cancer", "carcinoma", "tumor", "tumour", "neoplasm", "adenocarcinoma")
+                )
+                if generic_cancer and not display_groups.intersection(context_groups):
+                    context_bonus += 0.04
+                    penalty += 0.12
+                    reasons.append("generic_cancer_background")
+                    penalties.append("not_specific_to_current_context")
+                elif context_groups and not display_groups.intersection(context_groups):
+                    penalty += 0.08
+                    reasons.append("non_current_context_disease_background")
+                    penalties.append("not_specific_to_current_context")
+            if context_lit_scores:
+                context_bonus += min(0.16, max(context_lit_scores) * 0.16)
+                reasons.append("biomedbert_context_relevant_evidence")
+            if result_type == "target" and not direct_context_hits and not display_groups:
+                reasons.append("generic_molecular_target_background")
+            if result_type == "drug":
+                target_fits = [
+                    float(target.get("target_context_fit_score") or target.get("context_fit_score") or 0.0)
+                    for target in row.get("matched_targets", []) or []
+                ]
+                if target_fits:
+                    context_bonus += min(0.18, max(target_fits) * 0.18)
+                    reasons.append("inherits_target_context_fit")
+                context_notes = [
+                    target.get("context_match", {}).get("note")
+                    for target in row.get("matched_targets", []) or []
+                    if target.get("context_match", {}).get("note")
+                ]
+                if context_notes:
+                    penalty += 0.1
+                    penalties.append("overlay_context_not_matched")
+        else:
+            reasons.append("generalized_mode_no_user_context")
+
+        if support_count <= 0:
+            penalty += 0.1
+            penalties.append("no_direct_input_support")
+        if row.get("appendix") and result_type in {"target", "disease"}:
+            penalty += 0.08
+            penalties.append("already_appendix_or_low_confidence")
+        if result_type == "drug":
+            penalty += 0.08
+            penalties.append("drug_overlay_research_only")
+
+        raw_fit = 0.16 + base_score + literature_context_score + context_bonus - penalty
+        fit_score = round(clamp_unit(raw_fit), 6)
+        if fit_score >= 0.68:
+            tier = "high_fit"
+        elif fit_score >= 0.45:
+            tier = "medium_fit"
+        elif fit_score >= 0.25:
+            tier = "low_fit"
+        else:
+            tier = "appendix_fit"
+        appendix = tier == "appendix_fit" or any(reason.startswith("different_cancer_context") for reason in penalties)
+        if appendix:
+            tier = "appendix_fit"
+        return {
+            "context_fit_score": fit_score,
+            "context_fit_tier": tier,
+            "context_fit_reasons": reasons[:8],
+            "context_fit_penalties": penalties[:8],
+            "context_fit_appendix": appendix,
+            "context_fit_context_groups": sorted(context_groups),
+            "context_fit_display_groups": sorted(display_groups),
+            "context_fit_positive_terms": direct_context_hits[:8],
+            "context_fit_mode": "context_aware" if has_context else "generalized",
+        }
+
     def apply_context_fit_rerank(
         self,
-        pathway_rankings: list[dict[str, Any]],
+        rankings: list[dict[str, Any]],
         features_by_uid: dict[str, list[dict[str, Any]]],
         context: dict[str, Any] | None,
+        id_key: str = "pathway_uid",
     ) -> list[dict[str, Any]]:
-        if not pathway_rankings:
-            return pathway_rankings
+        if not rankings:
+            return rankings
         if not (context or {}).get("has_context"):
-            for row in pathway_rankings:
+            for row in rankings:
                 row.setdefault("context_fit_mode", "generalized")
-            return pathway_rankings
+            return rankings
         fitted = []
-        for index, row in enumerate(pathway_rankings, start=1):
+        for index, row in enumerate(rankings, start=1):
             row["original_rank"] = row.get("rank", index)
             row["original_score"] = row.get("score", 0.0)
-            row.update(self.pathway_context_fit_profile(row, features_by_uid, context))
+            if id_key == "pathway_uid":
+                row.update(self.pathway_context_fit_profile(row, features_by_uid, context))
+            else:
+                row.update(self.ranking_context_fit_profile(row, id_key, context))
+                if row.get("context_fit_appendix") and id_key in {"target_uid", "disease_uid"}:
+                    row["appendix"] = True
+                    row["appendix_reason"] = ";".join(
+                        reason
+                        for reason in [
+                            str(row.get("appendix_reason") or ""),
+                            "context_fit_appendix_for_current_background",
+                        ]
+                        if reason
+                    )
             fitted.append(row)
         fitted.sort(
             key=lambda row: (
                 bool(row.get("context_fit_appendix")),
                 -float(row.get("context_fit_score") or 0.0),
                 int(row.get("original_rank") or 9999),
-                str(row.get("pathway_uid") or ""),
+                str(row.get(id_key) or row.get("drug_id") or row.get("display_name") or ""),
             )
         )
         for rank, row in enumerate(fitted, start=1):
@@ -10764,6 +10959,102 @@ class MetaboService:
             "config_hash": ref.get("config_hash", ""),
         }
 
+    def context_relevance_for_literature_ref(
+        self,
+        ref: dict[str, Any],
+        context: dict[str, Any] | None,
+        sentences_by_uid: dict[str, dict[str, Any]],
+        relevance_by_uid: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        sentence_uids = parse_list(ref.get("sentence_uids"))
+        relevance_scores = [
+            float(relevance_by_uid.get(sentence_uid, {}).get("relevance_score") or 0.0)
+            for sentence_uid in sentence_uids
+            if sentence_uid in relevance_by_uid
+        ]
+        max_biomedbert = max(relevance_scores, default=0.0)
+        mean_biomedbert = sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
+        context_terms = set((context or {}).get("terms") or [])
+        context_hits: set[str] = set()
+        context_hit_weight = 0.0
+        if context_terms:
+            for sentence_uid in sentence_uids:
+                sentence = sentences_by_uid.get(sentence_uid, {})
+                sentence_text = normalize_lookup_key(sentence.get("sentence_text", ""))
+                if not sentence_text:
+                    continue
+                for term in context_terms:
+                    normalized_term = normalize_lookup_key(term)
+                    if len(normalized_term.replace(" ", "")) < 4:
+                        continue
+                    if normalized_text_has_term(sentence_text, normalized_term):
+                        if normalized_term not in context_hits:
+                            if normalized_term in GENERIC_CONTEXT_FIT_TERMS:
+                                context_hit_weight += 0.12
+                            elif " " in normalized_term:
+                                context_hit_weight += 0.45
+                            else:
+                                context_hit_weight += 0.3
+                        context_hits.add(normalized_term)
+        context_hit_score = min(1.0, context_hit_weight) if context_terms else 0.0
+        p_literature = float(ref.get("p_literature") or 0.0)
+        if context_terms:
+            score = clamp_unit(0.5 * max_biomedbert + 0.35 * context_hit_score + 0.15 * p_literature)
+        else:
+            score = clamp_unit(0.75 * max_biomedbert + 0.25 * p_literature)
+        if score >= 0.7:
+            tier = "context_high"
+        elif score >= 0.45:
+            tier = "context_medium"
+        elif context_terms and not context_hits:
+            tier = "generic_background"
+        else:
+            tier = "context_low"
+        return {
+            "context_relevance_score": round(score, 6),
+            "context_relevance_tier": tier,
+            "context_relevance_mode": "context_aware" if context_terms else "generalized",
+            "context_relevance_context_hits": sorted(context_hits)[:8],
+            "biomedbert_relevance_max": round(max_biomedbert, 6),
+            "biomedbert_relevance_mean": round(mean_biomedbert, 6),
+            "biomedbert_relevance_sentence_count": len(relevance_scores),
+            "context_relevance_formula": (
+                "0.5*max_biomedbert_relevance+0.35*context_term_hit_score+0.15*p_literature"
+                if context_terms
+                else "0.75*max_biomedbert_relevance+0.25*p_literature"
+            ),
+        }
+
+    def apply_context_aware_literature_rerank(
+        self,
+        refs: list[dict[str, Any]],
+        context: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        literature_refs = [ref for ref in refs if ref.get("ref_type") == "literature_support"]
+        if not literature_refs:
+            return refs
+        sentence_uids = sorted({uid for ref in literature_refs for uid in parse_list(ref.get("sentence_uids"))})
+        relevance_by_uid = self.load_sentence_relevance()
+        sentences_by_uid = {row.get("sentence_uid", ""): row for row in self.query_sentences(sentence_uids)}
+        enriched = []
+        for ref in refs:
+            if ref.get("ref_type") != "literature_support":
+                enriched.append(ref)
+                continue
+            updated = dict(ref)
+            updated.update(self.context_relevance_for_literature_ref(updated, context, sentences_by_uid, relevance_by_uid))
+            enriched.append(updated)
+        enriched.sort(
+            key=lambda row: (
+                0 if row.get("ref_type") == "literature_support" else 1,
+                -float(row.get("context_relevance_score") or 0.0),
+                -float(row.get("p_literature") or 0.0),
+                row.get("edge_uid", ""),
+                row.get("support_uid", ""),
+            )
+        )
+        return enriched
+
     def analysis_pack_dedupe_refs(self, refs: list[dict[str, Any]], limit: int = 100) -> list[dict[str, Any]]:
         unique: dict[tuple[Any, ...], dict[str, Any]] = {}
         for ref in refs:
@@ -10843,6 +11134,7 @@ class MetaboService:
             if not refs and row.get(id_key):
                 refs.extend(self.analysis_pack_edge_ref(edge) for edge in self.incident_edges(row.get(id_key, ""), limit=5))
             refs = self.analysis_pack_dedupe_refs(refs)
+            refs = self.apply_context_aware_literature_rerank(refs, context)
             packed = {
                 "rank": rank,
                 id_key: row.get(id_key, ""),
@@ -11027,11 +11319,15 @@ class MetaboService:
     def analysis_pack_literature_summary(self, refs: list[dict[str, Any]]) -> dict[str, Any]:
         literature_refs = [ref for ref in refs if ref.get("ref_type") == "literature_support"]
         p_values = [float(ref.get("p_literature") or 0.0) for ref in literature_refs]
+        context_values = [float(ref.get("context_relevance_score") or 0.0) for ref in literature_refs]
+        biomedbert_values = [float(ref.get("biomedbert_relevance_max") or 0.0) for ref in literature_refs]
         pmids = sorted({pmid for ref in literature_refs for pmid in ref.get("pmids", [])})
         support_classes = sorted({ref.get("support_class", "") for ref in literature_refs if ref.get("support_class")})
         return {
             "support_count": len({ref.get("support_uid", "") for ref in literature_refs if ref.get("support_uid")}),
             "max_p_literature": round(max(p_values), 6) if p_values else 0.0,
+            "max_context_relevance": round(max(context_values), 6) if context_values else 0.0,
+            "max_biomedbert_relevance": round(max(biomedbert_values), 6) if biomedbert_values else 0.0,
             "supported_pmids": pmids[:50],
             "support_classes": support_classes,
             "evidence_refs": literature_refs[:50],
@@ -11064,6 +11360,12 @@ class MetaboService:
             "theme_id": row.get("theme_id", ""),
             "context_mismatch": bool(row.get("context_mismatch")),
             "context_mismatch_groups": row.get("context_mismatch_groups", []),
+            "context_fit_score": row.get("context_fit_score", 0.0),
+            "context_fit_tier": row.get("context_fit_tier", ""),
+            "context_fit_reasons": row.get("context_fit_reasons", []),
+            "context_fit_penalties": row.get("context_fit_penalties", []),
+            "context_fit_appendix": bool(row.get("context_fit_appendix")),
+            "context_fit_mode": row.get("context_fit_mode", ""),
             "downgrade_reason": row.get("downgrade_reason", ""),
             "appendix": bool(row.get("appendix")),
             "appendix_reason": row.get("appendix_reason", ""),
@@ -12262,9 +12564,11 @@ class MetaboService:
         target_rankings = self.analysis_pack_ranking_rows(
             targets, "target_uid", paths_by_id, features_by_uid, input_summary, context
         )
+        target_rankings = self.apply_context_fit_rerank(target_rankings, features_by_uid, context, id_key="target_uid")
         disease_rankings = self.analysis_pack_ranking_rows(
             diseases, "disease_uid", paths_by_id, features_by_uid, input_summary, context
         )
+        disease_rankings = self.apply_context_fit_rerank(disease_rankings, features_by_uid, context, id_key="disease_uid")
         selected_paths = self.select_analysis_pack_top_paths(paths, [pathway_rankings, target_rankings, disease_rankings])
         top_paths = [self.analysis_pack_path_row(path) for path in selected_paths]
         fallback_chains = []

@@ -1510,6 +1510,108 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertTrue(reranked[1]["context_fit_appendix"])
             self.assertTrue(any("low_context_fit_terms" in item for item in reranked[1]["context_fit_penalties"]))
 
+    def test_context_fit_rerank_prioritizes_matching_disease_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            context = service.normalize_prediction_context(
+                "OV, ovarian cancer, ovary, epithelial, tumor vs adjacent"
+            )
+            rows = [
+                {
+                    "rank": 1,
+                    "disease_uid": "disease_melanoma",
+                    "display_name": "Melanoma",
+                    "score": 8.0,
+                    "calibrated_confidence": 0.4,
+                    "input_support_count": 2,
+                    "literature_support_count": 2,
+                    "evidence_refs": [],
+                },
+                {
+                    "rank": 2,
+                    "disease_uid": "disease_ovarian",
+                    "display_name": "Epithelial ovarian cancer",
+                    "score": 5.0,
+                    "calibrated_confidence": 0.35,
+                    "input_support_count": 2,
+                    "literature_support_count": 1,
+                    "evidence_refs": [],
+                },
+                {
+                    "rank": 3,
+                    "disease_uid": "disease_prostate",
+                    "display_name": "Prostate cancer",
+                    "score": 4.0,
+                    "calibrated_confidence": 0.3,
+                    "input_support_count": 2,
+                    "literature_support_count": 1,
+                    "evidence_refs": [],
+                },
+            ]
+
+            reranked = service.apply_context_fit_rerank(rows, {}, context, id_key="disease_uid")
+
+            self.assertEqual(reranked[0]["disease_uid"], "disease_ovarian")
+            self.assertIn("cancer_context_group_matches", reranked[0]["context_fit_reasons"])
+            mismatch_rows = {row["disease_uid"]: row for row in reranked[1:]}
+            self.assertTrue(mismatch_rows["disease_melanoma"]["context_fit_appendix"])
+            self.assertTrue(any("different_cancer_context" in item for item in mismatch_rows["disease_prostate"]["context_fit_penalties"]))
+
+    def test_biomedbert_context_aware_literature_refs_rank_matching_sentences_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            service = self.make_service(root)
+            write_parquet(
+                service.normalized_dir / "sentences.parquet",
+                [
+                    {
+                        "sentence_uid": "sent_ov",
+                        "article_uid": "article_1",
+                        "pmid": "1",
+                        "pmcid": "",
+                        "section": "abstract",
+                        "sentence_text": "Ovarian cancer epithelial tumor metabolism shows glycolytic remodeling.",
+                        "text_hash": "hash_1",
+                        "start_offset": 0,
+                        "end_offset": 80,
+                        "source_release": service.release_id,
+                        "parser_hash": "parser",
+                    },
+                    {
+                        "sentence_uid": "sent_pan",
+                        "article_uid": "article_2",
+                        "pmid": "2",
+                        "pmcid": "",
+                        "section": "abstract",
+                        "sentence_text": "Cancer cells can alter metabolism in many tumor types.",
+                        "text_hash": "hash_2",
+                        "start_offset": 0,
+                        "end_offset": 55,
+                        "source_release": service.release_id,
+                        "parser_hash": "parser",
+                    },
+                ],
+            )
+            write_parquet(
+                service.literature_dir / "sentence_relevance.parquet",
+                [
+                    {"sentence_uid": "sent_ov", "relevance_score": 0.85, "decision": "evidence_candidate", "model_name": "biomedbert", "config_hash": "cfg"},
+                    {"sentence_uid": "sent_pan", "relevance_score": 0.9, "decision": "evidence_candidate", "model_name": "biomedbert", "config_hash": "cfg"},
+                ],
+            )
+            context = service.normalize_prediction_context("ovarian cancer, epithelial, tumor metabolism")
+            refs = [
+                {"ref_type": "literature_support", "support_uid": "support_pan", "p_literature": 0.9, "sentence_uids": ["sent_pan"]},
+                {"ref_type": "literature_support", "support_uid": "support_ov", "p_literature": 0.7, "sentence_uids": ["sent_ov"]},
+            ]
+
+            reranked = service.apply_context_aware_literature_rerank(refs, context)
+
+            self.assertEqual(reranked[0]["support_uid"], "support_ov")
+            self.assertEqual(reranked[0]["context_relevance_tier"], "context_high")
+            self.assertIn("ovarian cancer", reranked[0]["context_relevance_context_hits"])
+            self.assertGreater(reranked[0]["context_relevance_score"], reranked[1]["context_relevance_score"])
+
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
