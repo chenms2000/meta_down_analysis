@@ -246,7 +246,115 @@ def aggregate_sentence_mentions(literature_dir: Path) -> tuple[Counter[str], Cou
     return mention_count, article_count, mention_terms
 
 
-def load_literature_relations(literature_dir: Path) -> tuple[pd.DataFrame, Counter[str], dict[str, Counter[str]]]:
+def sentence_uid_values(value: Any) -> list[str]:
+    return [item for item in as_list(value) if item]
+
+
+def load_sentence_relevance(literature_dir: Path) -> dict[str, dict[str, Any]]:
+    path = literature_dir / "sentence_relevance.parquet"
+    if not path.exists():
+        return {}
+    columns = ["sentence_uid", "relevance_score", "decision"]
+    available = [column for column in columns if column in pq.ParquetFile(path).schema.names]
+    if "sentence_uid" not in available:
+        return {}
+    frame = pq.read_table(path, columns=available).to_pandas()
+    if frame.empty:
+        return {}
+    frame["sentence_uid"] = frame["sentence_uid"].astype(str)
+    frame["relevance_score"] = pd.to_numeric(frame.get("relevance_score", 0.0), errors="coerce").fillna(0.0)
+    if "decision" not in frame.columns:
+        frame["decision"] = ""
+    grouped = frame.groupby("sentence_uid", dropna=True).agg(
+        relevance_score=("relevance_score", "max"),
+        decision=("decision", lambda values: ";".join(sorted({str(value) for value in values if str(value or "")}))),
+    )
+    return {
+        str(uid): {
+            "relevance_score": float(row.relevance_score),
+            "decision": str(row.decision or ""),
+        }
+        for uid, row in grouped.iterrows()
+    }
+
+
+def load_scispacy_sentence_features(normalized_dir: Path) -> dict[str, dict[str, Any]]:
+    path = normalized_dir / "sentence_entity_candidates.parquet"
+    if not path.exists():
+        return {}
+    columns = ["sentence_uid", "candidate_uid", "normalized_surface", "scispacy_label"]
+    available = [column for column in columns if column in pq.ParquetFile(path).schema.names]
+    if "sentence_uid" not in available:
+        return {}
+    frame = pq.read_table(path, columns=available).to_pandas()
+    if frame.empty:
+        return {}
+    frame["sentence_uid"] = frame["sentence_uid"].astype(str)
+    if "candidate_uid" not in frame.columns:
+        frame["candidate_uid"] = ""
+    if "normalized_surface" not in frame.columns:
+        frame["normalized_surface"] = ""
+    if "scispacy_label" not in frame.columns:
+        frame["scispacy_label"] = ""
+    grouped = frame.groupby("sentence_uid", dropna=True).agg(
+        candidate_count=("candidate_uid", "count"),
+        unique_surface_count=("normalized_surface", lambda values: len({str(value) for value in values if str(value or "")})),
+        label_count=("scispacy_label", lambda values: len({str(value) for value in values if str(value or "")})),
+    )
+    return {
+        str(uid): {
+            "candidate_count": int(row.candidate_count),
+            "unique_surface_count": int(row.unique_surface_count),
+            "label_count": int(row.label_count),
+        }
+        for uid, row in grouped.iterrows()
+    }
+
+
+def attach_sentence_nlp_features(
+    frame: pd.DataFrame,
+    relevance_by_sentence: dict[str, dict[str, Any]],
+    scispacy_by_sentence: dict[str, dict[str, Any]],
+) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    result = frame.copy()
+    rows: list[dict[str, Any]] = []
+    for row in result.to_dict(orient="records"):
+        sentence_uids = sentence_uid_values(row.get("sentence_uids"))
+        relevance_scores = [
+            safe_float(relevance_by_sentence[uid].get("relevance_score"))
+            for uid in sentence_uids
+            if uid in relevance_by_sentence
+        ]
+        relevance_decisions = [
+            str(relevance_by_sentence[uid].get("decision") or "")
+            for uid in sentence_uids
+            if uid in relevance_by_sentence
+        ]
+        scispacy_rows = [scispacy_by_sentence[uid] for uid in sentence_uids if uid in scispacy_by_sentence]
+        sentence_count = max(1, len(sentence_uids))
+        evidence_decision_count = sum(1 for value in relevance_decisions if "evidence_candidate" in value)
+        scispacy_sentence_count = len(scispacy_rows)
+        scispacy_candidate_count = sum(int(item.get("candidate_count", 0)) for item in scispacy_rows)
+        rows.append(
+            {
+                "biomedbert_relevance_mean": float(sum(relevance_scores) / len(relevance_scores)) if relevance_scores else 0.0,
+                "biomedbert_relevance_max": float(max(relevance_scores)) if relevance_scores else 0.0,
+                "biomedbert_relevance_min": float(min(relevance_scores)) if relevance_scores else 0.0,
+                "biomedbert_relevance_scored_sentence_count": int(len(relevance_scores)),
+                "biomedbert_relevance_evidence_candidate_fraction": float(evidence_decision_count / len(relevance_scores)) if relevance_scores else 0.0,
+                "scispacy_entity_candidate_count": int(scispacy_candidate_count),
+                "scispacy_unique_surface_count": int(sum(int(item.get("unique_surface_count", 0)) for item in scispacy_rows)),
+                "scispacy_label_count": int(sum(int(item.get("label_count", 0)) for item in scispacy_rows)),
+                "scispacy_candidate_sentence_fraction": float(scispacy_sentence_count / sentence_count),
+                "scispacy_candidate_density": float(scispacy_candidate_count / sentence_count),
+            }
+        )
+    return pd.concat([result.reset_index(drop=True), pd.DataFrame(rows)], axis=1)
+
+
+def load_literature_relations(literature_dir: Path, normalized_dir: Path | None = None) -> tuple[pd.DataFrame, Counter[str], dict[str, Counter[str]]]:
     path = literature_dir / "literature_edge_support.parquet"
     if not path.exists():
         return pd.DataFrame(), Counter(), defaultdict(Counter)
@@ -259,6 +367,11 @@ def load_literature_relations(literature_dir: Path) -> tuple[pd.DataFrame, Count
     frame["sentence_count"] = frame.get("sentence_uids", pd.Series(dtype=object)).apply(list_len)
     frame["pmid_count"] = frame.get("pmids", pd.Series(dtype=object)).apply(list_len)
     frame["pmcid_count"] = frame.get("pmcids", pd.Series(dtype=object)).apply(list_len)
+    frame = attach_sentence_nlp_features(
+        frame,
+        load_sentence_relevance(literature_dir),
+        load_scispacy_sentence_features(normalized_dir) if normalized_dir is not None else {},
+    )
 
     support_count: Counter[str] = Counter()
     support_terms: dict[str, Counter[str]] = defaultdict(Counter)
@@ -296,6 +409,16 @@ def load_literature_relations(literature_dir: Path) -> tuple[pd.DataFrame, Count
         "sentence_count",
         "pmid_count",
         "pmcid_count",
+        "biomedbert_relevance_mean",
+        "biomedbert_relevance_max",
+        "biomedbert_relevance_min",
+        "biomedbert_relevance_scored_sentence_count",
+        "biomedbert_relevance_evidence_candidate_fraction",
+        "scispacy_entity_candidate_count",
+        "scispacy_unique_surface_count",
+        "scispacy_label_count",
+        "scispacy_candidate_sentence_fraction",
+        "scispacy_candidate_density",
         "source_release",
         "license_id",
         "config_hash",
@@ -449,6 +572,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--release-id", default=DEFAULT_RELEASE_ID)
     parser.add_argument("--run-id", default="")
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
+    parser.add_argument("--graph-root", default="graph_projection")
+    parser.add_argument("--normalized-root", default="normalized_store")
+    parser.add_argument("--literature-root", default="literature_evidence")
+    parser.add_argument("--prediction-root", default="manual_sources/prediction_overlays")
     parser.add_argument("--edge-batch-size", type=int, default=250_000)
     parser.add_argument("--max-graph-positive-rows-per-edge-type", type=int, default=25_000)
     return parser.parse_args()
@@ -462,10 +589,10 @@ def main() -> int:
     run_dir = workspace / args.output_root / run_id
     views_dir = run_dir / "views"
 
-    graph_dir = workspace / "graph_projection" / release_id
-    normalized_dir = workspace / "normalized_store" / release_id
-    literature_dir = workspace / "literature_evidence" / release_id
-    overlay_dir = workspace / "manual_sources" / "prediction_overlays" / release_id
+    graph_dir = workspace / args.graph_root / release_id
+    normalized_dir = workspace / args.normalized_root / release_id
+    literature_dir = workspace / args.literature_root / release_id
+    overlay_dir = workspace / args.prediction_root / release_id
 
     nodes = load_nodes(graph_dir)
     degree, graph_terms, canonical_edge_count, pathway_context = aggregate_graph_edges(graph_dir, args.edge_batch_size)
@@ -475,7 +602,7 @@ def main() -> int:
         batch_size=args.edge_batch_size,
     )
     mention_count, article_count, mention_terms = aggregate_sentence_mentions(literature_dir)
-    literature_relations, support_count, support_terms = load_literature_relations(literature_dir)
+    literature_relations, support_count, support_terms = load_literature_relations(literature_dir, normalized_dir)
     literature_relations = add_publication_years(literature_relations, load_article_year_lookup(normalized_dir))
     drug_overlay, cell_overlay, overlay_count, overlay_terms = overlay_terms_and_counts(overlay_dir)
     entities = build_entities(
@@ -511,6 +638,8 @@ def main() -> int:
             "articles": str(normalized_dir / "articles.parquet"),
             "sentence_mentions": str(literature_dir / "sentence_mentions.parquet"),
             "literature_edge_support": str(literature_dir / "literature_edge_support.parquet"),
+            "sentence_relevance": str(literature_dir / "sentence_relevance.parquet"),
+            "sentence_entity_candidates": str(normalized_dir / "sentence_entity_candidates.parquet"),
             "drug_targets": str(overlay_dir / "drug_targets.csv"),
             "cell_type_signatures": str(overlay_dir / "cell_type_signatures.csv"),
         },

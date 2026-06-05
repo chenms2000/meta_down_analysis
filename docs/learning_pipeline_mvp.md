@@ -47,6 +47,23 @@ python .\scripts\train_priority_ranker.py `
   --run-id $run
 ```
 
+When using optional scispaCy/BiomedBERT rebuild outputs stored in separate
+directories, point the learning-view step at those roots:
+
+```powershell
+python .\scripts\build_learning_views.py `
+  --workspace . `
+  --release-id $release `
+  --run-id $run `
+  --normalized-root normalized_store_scispacy_abstract_full_YYYYMMDDTHHMMSS `
+  --literature-root literature_evidence_biomedbert_full_YYYYMMDDTHHMMSS
+```
+
+The learning view aggregates `sentence_relevance.parquet` and
+`sentence_entity_candidates.parquet` into numeric model features. These values
+are feature signals only: they must not be treated as gold labels, canonical
+facts, or clinical evidence.
+
 ## Outputs
 
 ```text

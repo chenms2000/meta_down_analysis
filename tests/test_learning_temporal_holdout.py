@@ -69,6 +69,66 @@ class LearningTemporalHoldoutTests(unittest.TestCase):
             self.assertEqual(enriched.loc[0, "publication_year"], 2025)
             self.assertEqual(enriched.loc[1, "publication_year_source"], "")
 
+    def test_learning_views_aggregate_scispacy_and_biomedbert_sentence_features(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            literature = root / "literature_evidence" / "mvp_test"
+            normalized = root / "normalized_store" / "mvp_test"
+            write_parquet(
+                literature / "literature_edge_support.parquet",
+                [
+                    {
+                        "support_uid": "sup_1",
+                        "subject_uid": "gene_1",
+                        "subject_type": "gene",
+                        "predicate": "gene_regulates_metabolic_process",
+                        "object_uid": "path_1",
+                        "object_type": "pathway",
+                        "pmids": ["1"],
+                        "pmcids": [],
+                        "sentence_uids": ["sent_1", "sent_2"],
+                        "support_class": "support_direction",
+                        "evidence_sentence_count": 2,
+                        "distinct_article_count": 1,
+                        "p_literature": 0.8,
+                        "raw_score_max": 0.8,
+                        "calibrated_prob_max": 0.8,
+                        "supported_existing_edge_uids": ["edge_1"],
+                        "evidence_relation_uids": ["rel_1"],
+                        "source_release": "mvp_test",
+                        "license_id": "local",
+                        "config_hash": "cfg",
+                    }
+                ],
+            )
+            write_parquet(
+                literature / "sentence_relevance.parquet",
+                [
+                    {"sentence_uid": "sent_1", "relevance_score": 0.9, "decision": "evidence_candidate"},
+                    {"sentence_uid": "sent_2", "relevance_score": 0.3, "decision": "background"},
+                ],
+            )
+            write_parquet(
+                normalized / "sentence_entity_candidates.parquet",
+                [
+                    {"candidate_uid": "cand_1", "sentence_uid": "sent_1", "normalized_surface": "glucose", "scispacy_label": "ENTITY"},
+                    {"candidate_uid": "cand_2", "sentence_uid": "sent_1", "normalized_surface": "hk2", "scispacy_label": "ENTITY"},
+                    {"candidate_uid": "cand_3", "sentence_uid": "sent_2", "normalized_surface": "glucose", "scispacy_label": "ENTITY"},
+                ],
+            )
+
+            relations, _support_count, _support_terms = build_learning_views.load_literature_relations(literature, normalized)
+            row = relations.iloc[0]
+
+            self.assertAlmostEqual(row["biomedbert_relevance_mean"], 0.6)
+            self.assertAlmostEqual(row["biomedbert_relevance_max"], 0.9)
+            self.assertEqual(row["biomedbert_relevance_scored_sentence_count"], 2)
+            self.assertAlmostEqual(row["biomedbert_relevance_evidence_candidate_fraction"], 0.5)
+            self.assertEqual(row["scispacy_entity_candidate_count"], 3)
+            self.assertEqual(row["scispacy_unique_surface_count"], 3)
+            self.assertAlmostEqual(row["scispacy_candidate_sentence_fraction"], 1.0)
+            self.assertAlmostEqual(row["scispacy_candidate_density"], 1.5)
+
     def test_weak_labels_use_year_and_keep_negative_split_with_source_paper(self):
         entity_features = {
             "target_a": {"display_name": "A"},
@@ -209,7 +269,21 @@ class LearningTemporalHoldoutTests(unittest.TestCase):
             predicate="participates_in",
             source_kind="literature_relation",
             entity_features=entity_features,
-            literature={"supported_existing_edge_count": 1, "context_terms": "cancer cell"},
+            literature={
+                "supported_existing_edge_count": 1,
+                "context_terms": "cancer cell",
+                "p_literature": 0.8,
+                "evidence_sentence_count": 2,
+                "biomedbert_relevance_mean": 0.75,
+                "biomedbert_relevance_max": 0.9,
+                "biomedbert_relevance_scored_sentence_count": 2,
+                "biomedbert_relevance_evidence_candidate_fraction": 1.0,
+                "scispacy_entity_candidate_count": 4,
+                "scispacy_unique_surface_count": 3,
+                "scispacy_label_count": 1,
+                "scispacy_candidate_sentence_fraction": 1.0,
+                "scispacy_candidate_density": 2.0,
+            },
             weak_label="weak_positive",
             label_score=0.58,
             label_reason="literature_support",
@@ -221,6 +295,15 @@ class LearningTemporalHoldoutTests(unittest.TestCase):
         self.assertEqual(row["shared_pathway_count"], 1.0)
         self.assertGreater(row["source_independent_prior_score"], 0.0)
         self.assertEqual(row["direct_graph_support_indicator"], 1.0)
+        self.assertEqual(row["biomedbert_relevance_mean"], 0.75)
+        self.assertGreater(row["biomedbert_weighted_literature_score"], row["literature_support_score"] * 0.5)
+        self.assertEqual(row["scispacy_entity_candidate_count"], 4.0)
+        self.assertGreater(row["scispacy_evidence_complexity_score"], 0.0)
+
+        matrix, columns = train_priority_ranker.build_feature_matrix(pd.DataFrame([row]), feature_mode="no_leakage")
+        self.assertIn("biomedbert_weighted_literature_score", columns)
+        self.assertIn("scispacy_evidence_complexity_score", columns)
+        self.assertGreater(float(matrix.iloc[0]["biomedbert_weighted_literature_score"]), 0.0)
 
     def test_source_balanced_weights_reduce_large_group_dominance(self):
         rows = []

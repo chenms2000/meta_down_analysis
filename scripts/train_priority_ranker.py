@@ -55,6 +55,20 @@ NUMERIC_COLUMNS = [
     "independent_article_score",
     "curated_edge_score",
     "overlay_score",
+    "biomedbert_relevance_mean",
+    "biomedbert_relevance_max",
+    "biomedbert_relevance_min",
+    "biomedbert_relevance_scored_sentence_count",
+    "biomedbert_relevance_evidence_candidate_fraction",
+    "biomedbert_weighted_literature_score",
+    "biomedbert_relevance_coverage",
+    "scispacy_entity_candidate_count",
+    "scispacy_entity_candidate_log",
+    "scispacy_unique_surface_count",
+    "scispacy_label_count",
+    "scispacy_candidate_sentence_fraction",
+    "scispacy_candidate_density",
+    "scispacy_evidence_complexity_score",
 ]
 CATEGORICAL_COLUMNS = ["subject_type", "object_type", "predicate", "relation_family", "subject_object_family", "source_kind", "label_reason"]
 FEATURE_MODES = {"full", "no_leakage"}
@@ -378,33 +392,39 @@ def main() -> int:
     model, feature_columns, metrics = train_model(labels, feature_mode=args.feature_mode, source_balanced=args.source_balanced)
     predictions = predict_all(labels, model, feature_columns, feature_mode=args.feature_mode)
 
-    relation_priorities = predictions[
-        [
-            "candidate_uid",
-            "subject_uid",
-            "subject_type",
-            "subject_name",
-            "predicate",
-            "object_uid",
-            "object_type",
-            "object_name",
-            "source_kind",
-            "weak_label",
-            "weak_label_class",
-            "label_score",
-            "priority_score",
-            "priority_score_raw",
-            "evidence_cap",
-            "label_reason",
-            "group_id",
-            "paper_id",
-            "publication_year",
-            "split",
-            "temporal_holdout",
-            "context_holdout",
-            "source_ref",
-        ]
-    ].copy()
+    relation_priority_columns = [
+        "candidate_uid",
+        "subject_uid",
+        "subject_type",
+        "subject_name",
+        "predicate",
+        "object_uid",
+        "object_type",
+        "object_name",
+        "source_kind",
+        "weak_label",
+        "weak_label_class",
+        "label_score",
+        "priority_score",
+        "priority_score_raw",
+        "evidence_cap",
+        "label_reason",
+        "group_id",
+        "paper_id",
+        "publication_year",
+        "split",
+        "temporal_holdout",
+        "context_holdout",
+        "source_ref",
+        "biomedbert_relevance_mean",
+        "biomedbert_relevance_max",
+        "biomedbert_weighted_literature_score",
+        "biomedbert_relevance_coverage",
+        "scispacy_entity_candidate_log",
+        "scispacy_candidate_density",
+        "scispacy_evidence_complexity_score",
+    ]
+    relation_priorities = predictions[[column for column in relation_priority_columns if column in predictions.columns]].copy()
     pathway_priorities = aggregate_priorities(predictions, "pathway")
     target_priorities = aggregate_priorities(predictions, "target")
     drug_priorities = aggregate_priorities(predictions, "drug")
@@ -448,6 +468,7 @@ def main() -> int:
         "notes": [
             "Priority scores are research-ranking outputs, not truth probabilities.",
             "Metrics are proxy validation over weak labels and pseudo-negatives.",
+            "scispaCy and BiomedBERT/PubMedBERT values are used only as preprocessing, relevance, and ranking features; they are not truth labels.",
             "no_leakage feature mode removes source_kind and label_reason categorical shortcuts.",
             "source_balanced training reweights source_kind x weak_label groups to reduce source-volume dominance.",
         ],

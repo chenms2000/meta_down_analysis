@@ -313,6 +313,16 @@ def feature_row(
     distinct_articles = safe_int(literature.get("distinct_article_count"))
     sentence_count = safe_int(literature.get("evidence_sentence_count"))
     existing_edge_count = safe_int(literature.get("supported_existing_edge_count"))
+    biomedbert_relevance_mean = safe_float(literature.get("biomedbert_relevance_mean"))
+    biomedbert_relevance_max = safe_float(literature.get("biomedbert_relevance_max"))
+    biomedbert_relevance_min = safe_float(literature.get("biomedbert_relevance_min"))
+    biomedbert_scored_sentences = safe_int(literature.get("biomedbert_relevance_scored_sentence_count"))
+    biomedbert_evidence_fraction = safe_float(literature.get("biomedbert_relevance_evidence_candidate_fraction"))
+    scispacy_candidate_count = safe_int(literature.get("scispacy_entity_candidate_count"))
+    scispacy_unique_surface_count = safe_int(literature.get("scispacy_unique_surface_count"))
+    scispacy_label_count = safe_int(literature.get("scispacy_label_count"))
+    scispacy_candidate_sentence_fraction = safe_float(literature.get("scispacy_candidate_sentence_fraction"))
+    scispacy_candidate_density = safe_float(literature.get("scispacy_candidate_density"))
     overlay_confidence = safe_float(overlay.get("confidence"))
     group_key, group_value = first_group_id(literature, overlay)
     context_value = " ".join(str(literature.get(key, overlay.get(key, ""))) for key in ("context", "context_terms", "disease", "organ", "tissue", "cell_type"))
@@ -421,6 +431,20 @@ def feature_row(
         "independent_article_score": log1p(distinct_articles),
         "curated_edge_score": log1p(existing_edge_count),
         "overlay_score": overlay_confidence,
+        "biomedbert_relevance_mean": biomedbert_relevance_mean,
+        "biomedbert_relevance_max": biomedbert_relevance_max,
+        "biomedbert_relevance_min": biomedbert_relevance_min,
+        "biomedbert_relevance_scored_sentence_count": float(biomedbert_scored_sentences),
+        "biomedbert_relevance_evidence_candidate_fraction": biomedbert_evidence_fraction,
+        "biomedbert_weighted_literature_score": log1p(sentence_count) * p_literature * (0.5 + 0.5 * biomedbert_relevance_mean),
+        "biomedbert_relevance_coverage": float(biomedbert_scored_sentences / max(1, sentence_count)),
+        "scispacy_entity_candidate_count": float(scispacy_candidate_count),
+        "scispacy_entity_candidate_log": log1p(scispacy_candidate_count),
+        "scispacy_unique_surface_count": float(scispacy_unique_surface_count),
+        "scispacy_label_count": float(scispacy_label_count),
+        "scispacy_candidate_sentence_fraction": scispacy_candidate_sentence_fraction,
+        "scispacy_candidate_density": scispacy_candidate_density,
+        "scispacy_evidence_complexity_score": log1p(scispacy_candidate_count) * scispacy_candidate_sentence_fraction,
         "source_ref": literature.get("support_uid", overlay.get("source_record_id", "")),
     }
 
