@@ -70,6 +70,20 @@ literature_evidence/<release_id>/
 learning_runs/<run_id>/
 ```
 
+如果把可选 NLP 结果放在独立目录中，可以用自定义 root 启动本地工作台，例如：
+
+```powershell
+python scripts\metabo_service.py `
+  --workspace . `
+  --normalized-root normalized_store_scispacy_abstract_full_YYYYMMDDTHHMMSS `
+  --literature-root literature_evidence_biomedbert_full_YYYYMMDDTHHMMSS `
+  --release-id mvp_20260513T002254 `
+  serve --port 8766
+```
+
+启动后用 `/releases` 检查 `sentence_entity_candidates` 和 `sentence_relevance`
+是否非空，确认工作台正在读取新的 scispaCy/BiomedBERT evidence。
+
 ## 方法学概览
 
 1. **输入识别**：系统先判断输入是普通代谢物表、GCST/trait 表，还是已经计算好的两组差异结果表。差异表只读取标识符、效应量、显著性、方向和分组元数据，不读取原始丰度矩阵。

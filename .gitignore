@@ -18,11 +18,13 @@ sandbox_write_probe.txt
 raw_lake/
 manifests/
 normalized_store/
+normalized_store_*/
 graph_projection/
 database_accuracy_store/
 compound_match_index/
 literature_corpus/
 literature_evidence/
+literature_evidence_*/
 pubchem_cid_cache/
 articles_collect/
 learning_runs/
@@ -30,3 +32,5 @@ validation_reports/
 manual_sources/
 ChEBI/
 backups/
+rstudio-export.zip
+*.zip
