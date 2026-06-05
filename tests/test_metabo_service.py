@@ -625,6 +625,77 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertEqual(pubchem["status"], "found")
             self.assertEqual(pubchem["properties"]["formula"], "C6H12O6")
 
+    def test_default_roots_prefer_enhanced_scispacy_biomedbert_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            release = "mvp_20260101T000000"
+            (root / "graph_projection" / release).mkdir(parents=True)
+            enhanced_normalized = root / metabo_service.PREFERRED_NORMALIZED_ROOT / release
+            enhanced_literature = root / metabo_service.PREFERRED_LITERATURE_ROOT / release
+            enhanced_normalized.mkdir(parents=True)
+            enhanced_literature.mkdir(parents=True)
+            (enhanced_normalized / "normalized_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "manifest_hash": "enhanced_norm",
+                        "tables": [
+                            {"table": "articles", "rows": 2},
+                            {"table": "sentences", "rows": 3},
+                            {"table": "sentence_entity_candidates", "rows": 4},
+                        ],
+                        "notes": [{"component": "articles_collect", "message": "title/abstract scope"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (enhanced_literature / "literature_evidence_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "manifest_hash": "enhanced_lit",
+                        "metrics": {"relevance_scored_sentence_count": 5},
+                        "tables": [{"table": "sentence_relevance", "rows": 5}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            service = metabo_service.MetaboService(root, release_id=release)
+            release_meta = service.release_meta()
+
+            self.assertEqual(service.normalized_root.name, metabo_service.PREFERRED_NORMALIZED_ROOT)
+            self.assertEqual(service.literature_root.name, metabo_service.PREFERRED_LITERATURE_ROOT)
+            self.assertEqual(release_meta["normalized_root_selection"]["mode"], "preferred")
+            self.assertEqual(release_meta["literature_root_selection"]["mode"], "preferred")
+            scope = release_meta["evidence_scope"]
+            self.assertEqual(scope["scope"], "title_abstract_sentence_mining_with_traceable_local_full_text")
+            self.assertEqual(scope["sentence_entity_candidate_count"], 4)
+            self.assertEqual(scope["literature_metrics"]["relevance_scored_sentence_count"], 5)
+
+    def test_explicit_roots_override_enhanced_auto_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            release = "mvp_20260101T000000"
+            explicit_normalized = root / "custom_normalized"
+            explicit_literature = root / "custom_literature"
+            enhanced_normalized = root / metabo_service.PREFERRED_NORMALIZED_ROOT / release
+            enhanced_literature = root / metabo_service.PREFERRED_LITERATURE_ROOT / release
+            for directory in (explicit_normalized / release, explicit_literature / release, enhanced_normalized, enhanced_literature):
+                directory.mkdir(parents=True)
+            (enhanced_normalized / "normalized_manifest.json").write_text("{}", encoding="utf-8")
+            (enhanced_literature / "literature_evidence_manifest.json").write_text("{}", encoding="utf-8")
+
+            service = metabo_service.MetaboService(
+                root,
+                release_id=release,
+                normalized_root=explicit_normalized,
+                literature_root=explicit_literature,
+            )
+
+            self.assertEqual(service.normalized_root, explicit_normalized.resolve())
+            self.assertEqual(service.literature_root, explicit_literature.resolve())
+            self.assertEqual(service.normalized_root_auto_selection["mode"], "explicit")
+            self.assertEqual(service.literature_root_auto_selection["mode"], "explicit")
+
     def test_ambiguous_rows_create_low_weight_expanded_candidates(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = self.make_service(Path(tmp))
@@ -3142,6 +3213,101 @@ class MetaboServiceTests(unittest.TestCase):
             fao = coverage["acylcarnitine_fatty_acid_oxidation_pressure"]["coverage"]
             self.assertEqual(fao["direction_consistency"], 1.0)
             self.assertEqual(fao["biological_pattern_consistency"], "fatty_acid_oxidation_pressure_consistent")
+
+    def test_interpretation_report_prioritizes_mechanism_ready_facts_over_rankings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            analysis_pack = {
+                "input_summary": {
+                    "input_count": 1,
+                    "matched_count": 1,
+                    "ambiguous_count": 0,
+                    "unmatched_count": 0,
+                    "expanded_candidate_count": 0,
+                    "expanded_by_class": {},
+                },
+                "matched": [
+                    {
+                        "input_id": "input_1",
+                        "record": {"HMDB": "HMDB0000122", "log2FC": 1.0, "padj": 0.01},
+                        "metabolite_uid": "met_1",
+                        "resolution": {"candidates": [{"entity_uid": "met_1", "display_name": "Glucose", "score": 99}]},
+                    }
+                ],
+                "database_accuracy": {
+                    "contract_version": "database_accuracy_store.v2",
+                    "store_available": True,
+                    "identity_decision_summary": {"accepted_exact": 1},
+                    "mechanism_ready_facts": [
+                        {
+                            "fact_uid": "fact_role_unknown",
+                            "fact_type": "reaction_participation",
+                            "subject_uid": "met_1",
+                            "subject_name": "Glucose",
+                            "predicate": "participates_in_reaction",
+                            "object_uid": "reaction_1",
+                            "object_type": "reaction",
+                            "object_name": "Glucose phosphorylation",
+                            "role": "participant",
+                            "direction": "unknown",
+                            "allowed_claim_scope": "role_unknown_reaction_fact",
+                            "source_record_uid": "src_1",
+                            "source_record_uids": ["src_1"],
+                            "identity_decision_uids": ["decision_1"],
+                        }
+                    ],
+                },
+                "pathway_rankings": [
+                    {
+                        "pathway_uid": "pathway_1",
+                        "display_name": "Glycolysis",
+                        "confidence_tier": "high",
+                        "calibrated_confidence": 0.99,
+                        "claim_refs": {"traceability_passed": True},
+                        "evidence_refs": [{"ref_type": "edge", "edge_uid": "edge_1"}],
+                    }
+                ],
+                "target_rankings": [],
+                "disease_rankings": [],
+            }
+
+            report = service.build_interpretation_report(analysis_pack, prediction_pack={})
+            first_claim = report["conclusion_chains"][0]
+
+            self.assertEqual(first_claim["claim_type"], "mechanism_fact")
+            self.assertEqual(first_claim["source"], "database_accuracy_store.mechanism_ready_facts")
+            self.assertEqual(first_claim["mechanism_fact"]["allowed_claim_scope"], "role_unknown_reaction_fact")
+            self.assertIn("参与可追溯反应", first_claim["headline"])
+            self.assertNotIn("activate", json.dumps(first_claim, ensure_ascii=False).lower())
+            self.assertNotIn("increase", json.dumps(first_claim, ensure_ascii=False).lower())
+            self.assertNotIn("decrease", json.dumps(first_claim, ensure_ascii=False).lower())
+            self.assertNotIn("flux", json.dumps(first_claim, ensure_ascii=False).lower())
+            self.assertEqual(report["appendix"]["ranking_hypotheses"][0]["source"], "analysis_pack.pathway_rankings")
+            self.assertEqual(report["appendix"]["ranking_hypotheses"][0]["excluded_from_core_reason"], "mechanism_ready_facts_have_priority")
+
+    def test_ratio_component_report_language_stays_low_weight_relative_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            annotation_dir = root / "raw_lake" / "European"
+            annotation_dir.mkdir(parents=True, exist_ok=True)
+            (annotation_dir / "European_trait_annotations.csv").write_text(
+                "\n".join(
+                    [
+                        "accession_id,reported_trait,summary_statistics_url,pubmed_id,paper_title,resolution_status,mapped_names,local_name_hits,pubchem_cids,local_pubchem_cid_hits,pubchem_titles,pubchem_formulas,pubchem_inchikeys,candidate_names,pubchem_query,source_name",
+                        "GCST90201000,Shared to Glucose ratio,http://example.org/GCST90201000,123456,European trait paper,local_name,Shared|Glucose,Shared|Glucose,,,,,,Shared|Glucose,,test",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            service = self.make_service(root)
+
+            analyzed = service.analyze_metabolites([{"trait": "GCST90201000", "log2FC": 1.0, "padj": 0.01}], max_paths=5, max_hops=2)
+            pack = analyzed["analysis_pack"]
+            report_text = json.dumps(analyzed["interpretation_report"], ensure_ascii=False)
+
+            self.assertEqual(pack["expanded_summary"]["weight_policy"]["ratio_component"], 0.25)
+            self.assertIn("ratio component 仅作为低权重相对比例线索", report_text)
+            self.assertIn("不能推出分子或分母的实测丰度升降", report_text)
 
     def test_structured_prediction_json_contract_and_generalized_appendix(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -69,10 +69,12 @@ from llm_safe_adapter import (  # noqa: E402
 
 
 DEFAULT_NORMALIZED_ROOT = "normalized_store"
+PREFERRED_NORMALIZED_ROOT = "normalized_store_scispacy_abstract_full_20260604T172741"
 DEFAULT_GRAPH_ROOT = "graph_projection"
 DEFAULT_PUBCHEM_ROOT = "pubchem_cid_cache"
 DEFAULT_COMPOUND_MATCH_ROOT = DEFAULT_COMPOUND_ROOT
 DEFAULT_LITERATURE_ROOT = "literature_evidence"
+PREFERRED_LITERATURE_ROOT = "literature_evidence_biomedbert_full_20260604T172741"
 DEFAULT_PREDICTION_OVERLAY_ROOT = "manual_sources/prediction_overlays"
 DEFAULT_DATABASE_ACCURACY_ROOT = "database_accuracy_store"
 DEFAULT_GOLD_STANDARD_PATHS = (
@@ -1322,6 +1324,36 @@ def read_json_file(path: Path) -> dict[str, Any]:
 
 def latest_release_id(root: Path) -> str:
     return latest_normalized_release_id(root)
+
+
+def auto_artifact_root(
+    workspace: Path,
+    default_root_name: str,
+    preferred_root_name: str,
+    release_id: str,
+    required_manifest: str,
+) -> tuple[Path, dict[str, Any]]:
+    default_root = workspace / default_root_name
+    preferred_root = workspace / preferred_root_name
+    preferred_release = preferred_root / release_id
+    if preferred_release.exists() and (preferred_release / required_manifest).exists():
+        return preferred_root.resolve(), {
+            "mode": "preferred",
+            "selected_root": preferred_root_name,
+            "fallback_root": default_root_name,
+            "reason": "preferred_release_manifest_available",
+        }
+    reason = "preferred_release_missing"
+    if preferred_root.exists() and not preferred_release.exists():
+        reason = "preferred_root_present_release_missing"
+    elif preferred_release.exists():
+        reason = "preferred_manifest_missing"
+    return default_root.resolve(), {
+        "mode": "fallback",
+        "selected_root": default_root_name,
+        "preferred_root": preferred_root_name,
+        "reason": reason,
+    }
 
 
 def table_dataset(path: Path) -> ds.Dataset:
@@ -3923,14 +3955,34 @@ class MetaboService:
     ):
         require_arrow()
         self.workspace = workspace.resolve()
-        self.normalized_root = (normalized_root or self.workspace / DEFAULT_NORMALIZED_ROOT).resolve()
         self.graph_root = (graph_root or self.workspace / DEFAULT_GRAPH_ROOT).resolve()
+        self.release_id = release_id or latest_release_id(self.graph_root)
+        self.normalized_root_auto_selection: dict[str, Any] = {"mode": "explicit", "selected_root": str(normalized_root)} if normalized_root else {}
+        self.literature_root_auto_selection: dict[str, Any] = {"mode": "explicit", "selected_root": str(literature_root)} if literature_root else {}
+        if normalized_root:
+            self.normalized_root = normalized_root.resolve()
+        else:
+            self.normalized_root, self.normalized_root_auto_selection = auto_artifact_root(
+                self.workspace,
+                DEFAULT_NORMALIZED_ROOT,
+                PREFERRED_NORMALIZED_ROOT,
+                self.release_id,
+                "normalized_manifest.json",
+            )
         self.pubchem_root = (pubchem_root or self.workspace / DEFAULT_PUBCHEM_ROOT).resolve()
         self.compound_root = (compound_root or self.workspace / DEFAULT_COMPOUND_MATCH_ROOT).resolve()
-        self.literature_root = (literature_root or self.workspace / DEFAULT_LITERATURE_ROOT).resolve()
+        if literature_root:
+            self.literature_root = literature_root.resolve()
+        else:
+            self.literature_root, self.literature_root_auto_selection = auto_artifact_root(
+                self.workspace,
+                DEFAULT_LITERATURE_ROOT,
+                PREFERRED_LITERATURE_ROOT,
+                self.release_id,
+                "literature_evidence_manifest.json",
+            )
         self.prediction_root = (prediction_root or self.workspace / DEFAULT_PREDICTION_OVERLAY_ROOT).resolve()
         self.database_accuracy_root = (self.workspace / DEFAULT_DATABASE_ACCURACY_ROOT).resolve()
-        self.release_id = release_id or latest_release_id(self.graph_root)
         self.config = config or ServiceConfig()
         self.llm_config = llm_config or ExternalLLMConfig.from_env()
         self.llm_transport = llm_transport
@@ -4437,14 +4489,55 @@ class MetaboService:
                 },
             )
 
+    def normalized_manifest(self) -> dict[str, Any]:
+        return read_json_file(self.normalized_dir / "normalized_manifest.json")
+
+    def release_evidence_scope(self) -> dict[str, Any]:
+        normalized_manifest = self.normalized_manifest()
+        literature_manifest = self.literature_manifest()
+        normalized_tables = {str(row.get("table") or ""): int(row.get("rows") or 0) for row in normalized_manifest.get("tables", [])}
+        literature_tables = {str(row.get("table") or ""): int(row.get("rows") or 0) for row in literature_manifest.get("tables", [])}
+        notes = [str(note.get("message") or "") for note in normalized_manifest.get("notes", []) if note.get("component") == "articles_collect"]
+        warnings = []
+        if self.literature_root.name == DEFAULT_LITERATURE_ROOT and (self.literature_dir / "sentence_mentions.parquet").exists():
+            warnings.append(
+                {
+                    "code": "legacy_literature_root",
+                    "severity": "warning",
+                    "message": "Default legacy literature_evidence root is in use; prefer the BiomedBERT evidence root for paper-facing reports when available.",
+                }
+            )
+        return {
+            "scope": "title_abstract_sentence_mining_with_traceable_local_full_text",
+            "full_text_boundary": "Article rows retain local text path, byte size, and checksum; current sentence mining is title/abstract unless rebuilt with --article-sentence-scope full.",
+            "normalized_root": str(self.normalized_root),
+            "literature_root": str(self.literature_root),
+            "normalized_root_selection": self.normalized_root_auto_selection,
+            "literature_root_selection": self.literature_root_auto_selection,
+            "normalized_manifest_hash": normalized_manifest.get("manifest_hash", ""),
+            "literature_manifest_hash": literature_manifest.get("manifest_hash", ""),
+            "article_count": normalized_tables.get("articles", literature_manifest.get("article_table_row_count", 0)),
+            "sentence_count": normalized_tables.get("sentences", 0),
+            "sentence_entity_candidate_count": normalized_tables.get("sentence_entity_candidates", 0),
+            "literature_tables": literature_tables,
+            "literature_metrics": literature_manifest.get("metrics", {}),
+            "article_materialization_notes": notes,
+            "warnings": warnings,
+        }
+
     def release_meta(self) -> dict[str, Any]:
         return {
             "release_id": self.release_id,
+            "normalized_root": str(self.normalized_root),
+            "literature_root": str(self.literature_root),
+            "normalized_root_selection": self.normalized_root_auto_selection,
+            "literature_root_selection": self.literature_root_auto_selection,
             "normalized_manifest": str(self.normalized_dir / "normalized_manifest.json"),
             "graph_manifest": str(self.graph_dir / "graph_manifest.json"),
             "pubchem_manifest": str(self.pubchem_dir / "pubchem_cid_cache_manifest.json"),
             "compound_match_manifest": str(self.compound_dir / "compound_match_index_manifest.json"),
             "literature_evidence_manifest": str(self.literature_dir / "literature_evidence_manifest.json"),
+            "evidence_scope": self.release_evidence_scope(),
             "prediction_overlay_dir": str(self.prediction_dir),
             "config_hash": content_hash(self.config.as_dict())[:16],
         }
@@ -4480,6 +4573,7 @@ class MetaboService:
             pubchem_manifest = read_json_file(self.pubchem_root / release_id / "pubchem_cid_cache_manifest.json")
             compound_manifest = read_json_file(self.compound_root / release_id / "compound_match_index_manifest.json")
             literature_manifest = read_json_file(self.literature_root / release_id / "literature_evidence_manifest.json")
+            normalized_tables = {str(row.get("table") or ""): int(row.get("rows") or 0) for row in normalized_manifest.get("tables", [])}
             releases.append(
                 {
                     "release_id": release_id,
@@ -4489,6 +4583,10 @@ class MetaboService:
                     "has_pubchem_cid_cache": (self.pubchem_root / release_id).exists(),
                     "has_compound_match_index": (self.compound_root / release_id).exists(),
                     "has_literature_evidence": (self.literature_root / release_id).exists(),
+                    "normalized_root": str(self.normalized_root),
+                    "literature_root": str(self.literature_root),
+                    "normalized_root_selection": self.normalized_root_auto_selection,
+                    "literature_root_selection": self.literature_root_auto_selection,
                     "node_count": graph_manifest.get("node_count"),
                     "edge_count": next(
                         (row.get("rows") for row in graph_manifest.get("tables", []) if row.get("table") == "edges"),
@@ -4509,6 +4607,15 @@ class MetaboService:
                         for row in literature_manifest.get("tables", [])
                     ],
                     "literature_evidence_metrics": literature_manifest.get("metrics", {}),
+                    "evidence_scope": {
+                        "scope": "title_abstract_sentence_mining_with_traceable_local_full_text",
+                        "normalized_manifest_hash": normalized_manifest.get("manifest_hash", ""),
+                        "literature_manifest_hash": literature_manifest.get("manifest_hash", ""),
+                        "article_count": normalized_tables.get("articles", literature_manifest.get("article_table_row_count", 0)),
+                        "sentence_count": normalized_tables.get("sentences", 0),
+                        "sentence_entity_candidate_count": normalized_tables.get("sentence_entity_candidates", 0),
+                        "relevance_scored_sentence_count": (literature_manifest.get("metrics", {}) or {}).get("relevance_scored_sentence_count", 0),
+                    },
                 }
             )
         return self.response_envelope("/releases", {}, {"releases": releases})
@@ -12063,6 +12170,11 @@ class MetaboService:
         support_classes = {str(ref.get("support_class") or "") for ref in evidence_refs}
         if int(input_summary.get("ambiguous_count") or 0):
             downgrade.append("部分输入存在歧义，不能支撑精确化学身份的强结论")
+        expanded_by_class = input_summary.get("expanded_by_class") or {}
+        if int(expanded_by_class.get("ratio_component") or 0):
+            downgrade.append("ratio component 仅作为低权重相对比例线索，不能推出分子或分母的实测丰度升降")
+        if int(expanded_by_class.get("class_or_pool") or 0):
+            downgrade.append("class/pool 输入仅支持类别或主题层解释，不能支撑精确单体机制")
         if int(input_summary.get("unmatched_count") or 0) or int(input_summary.get("invalid_count") or 0):
             downgrade.append("部分输入未能匹配到当前 release")
         if row.get("context_mismatch"):
@@ -12211,6 +12323,115 @@ class MetaboService:
                     "next_validation": self.interpretation_next_validation(claim_type),
                     "review_required": row.get("confidence_tier") in {"exploratory", "low"} or bool(row.get("needs_validation")),
                     "source": "analysis_pack.pathway_rankings",
+                }
+            )
+        return claims
+
+    def interpretation_mechanism_fact_boundary(self, fact: dict[str, Any]) -> str:
+        scope = str(fact.get("allowed_claim_scope") or fact.get("mechanism_scope") or "")
+        boundary = str(fact.get("boundary_text") or "")
+        if scope == "role_unknown_reaction_fact":
+            return boundary or "该事实仅支持精确化学实体参与可追溯反应；不能据此推出反应方向、通路活性、代谢通量改变或因果机制。"
+        if scope in {"directional_reaction_fact", "bidirectional_reaction_fact"}:
+            return boundary or "该事实支持方向相关的反应候选线索；仍需结合样本效应方向、酶/转运体和正交实验证据验证。"
+        return boundary or "该事实可作为候选机制解释的结构化支持；不等同于已验证机制、因果关系或临床结论。"
+
+    def interpretation_mechanism_fact_claims(
+        self,
+        analysis_pack: dict[str, Any],
+        support_index: dict[str, list[dict[str, Any]]],
+        input_summary: dict[str, Any],
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        facts = (analysis_pack.get("database_accuracy") or {}).get("mechanism_ready_facts") or []
+        claims = []
+        for fact in facts[:limit]:
+            subject_uid = str(fact.get("subject_uid") or "")
+            subject = str(fact.get("subject_name") or subject_uid or "input chemical")
+            obj = str(fact.get("object_name") or fact.get("object_uid") or "reaction/module fact")
+            predicate = str(fact.get("predicate") or fact.get("fact_type") or "links_to")
+            scope = str(fact.get("allowed_claim_scope") or fact.get("mechanism_scope") or "")
+            role = str(fact.get("role") or "")
+            direction = str(fact.get("direction") or "")
+            source_record_uids = parse_list(fact.get("source_record_uids")) or ([str(fact.get("source_record_uid"))] if fact.get("source_record_uid") else [])
+            assertion_uids = parse_list(fact.get("supporting_assertion_uids")) or ([str(fact.get("evidence_assertion_uid"))] if fact.get("evidence_assertion_uid") else [])
+            support_inputs = self.interpretation_supporting_inputs([subject_uid], support_index)
+            boundary = self.interpretation_mechanism_fact_boundary(fact)
+            is_directional = scope in {"directional_reaction_fact", "bidirectional_reaction_fact"}
+            is_appendix = bool(fact.get("appendix") or fact.get("context_mismatch"))
+            confidence_tier = "high" if is_directional and source_record_uids and not is_appendix else "medium"
+            if is_appendix:
+                confidence_tier = "exploratory"
+            downgrade = []
+            if scope == "role_unknown_reaction_fact":
+                downgrade.append("反应角色或方向未知，只能写作反应参与事实")
+            if not assertion_uids:
+                downgrade.append("缺少直接 evidence assertion，仅依赖来源记录或 curated relation trace")
+            if is_appendix:
+                downgrade.append(str(fact.get("appendix_reason") or "context mismatch or appendix-only fact"))
+            if int(input_summary.get("expanded_candidate_count") or 0):
+                downgrade.append("输入中存在 ratio/class/soft identity 等低权重探索 seed，不能支撑强机制表述")
+            evidence_refs = [
+                {
+                    "ref_type": "database_accuracy_fact",
+                    "fact_uid": fact.get("fact_uid", ""),
+                    "source_record_id": source_record_uids[0] if source_record_uids else "",
+                    "source_record_uids": source_record_uids[:10],
+                    "evidence_assertion_uid": assertion_uids[0] if assertion_uids else "",
+                    "supporting_assertion_uids": assertion_uids[:10],
+                    "source_release": self.release_id,
+                    "allowed_claim_scope": scope,
+                }
+            ]
+            headline = (
+                f"{subject} 参与可追溯反应：{obj}"
+                if scope == "role_unknown_reaction_fact"
+                else f"{subject} 具有方向相关的候选反应线索：{obj}"
+            )
+            claims.append(
+                {
+                    "claim_id": f"claim_mechanism_fact_{len(claims) + 1:03d}",
+                    "claim_type": "mechanism_fact",
+                    "headline": headline,
+                    "basis": f"database_accuracy_store.v2 fact {fact.get('fact_uid', '')} links {subject} via {predicate} to {obj}.",
+                    "relation_chain": [subject, predicate, obj],
+                    "possible_mechanism": "这是候选机制解释的可追溯事实单元；报告层不会把它升级为已验证通路活性或因果机制。",
+                    "supporting_inputs": support_inputs,
+                    "supporting_input_count": len(support_inputs) or 1,
+                    "supporting_nodes": [
+                        {"node_uid": subject_uid, "display_name": subject, "node_type": "metabolite"},
+                        {"node_uid": str(fact.get("object_uid") or ""), "display_name": obj, "node_type": str(fact.get("object_type") or "reaction")},
+                    ],
+                    "supporting_edges": [],
+                    "identity_decision_uids": parse_list(fact.get("identity_decision_uids")),
+                    "mechanism_fact": {
+                        "fact_uid": fact.get("fact_uid", ""),
+                        "fact_type": fact.get("fact_type", ""),
+                        "allowed_claim_scope": scope,
+                        "role": role,
+                        "direction": direction,
+                        "boundary_text": boundary,
+                    },
+                    "evidence_refs": evidence_refs,
+                    "confidence_tier": confidence_tier,
+                    "calibrated_confidence": 0.86 if confidence_tier == "high" else (0.62 if confidence_tier == "medium" else 0.35),
+                    "confidence_reasons": {
+                        "positive_factors": [
+                            "来自 database_accuracy_store.v2 的 mechanism-ready fact",
+                            "支持精确化学身份和来源记录回链",
+                            "优先于 legacy pathway/target/disease ranking 进入核心候选结论",
+                        ],
+                        "downgrade_factors": list(dict.fromkeys(downgrade))[:6],
+                    },
+                    "boundary": boundary,
+                    "related_candidates": [],
+                    "next_validation": [
+                        "回到原始输入检查该代谢物或 trait 的方向、效应量和显著性。",
+                        "结合关键酶、转运体、蛋白或代谢通量证据验证该反应线索。",
+                        "若输入来自 GCST/TraitScore，补充直接代谢物丰度或患者层验证后再写作机制增强/减弱。",
+                    ],
+                    "review_required": confidence_tier != "high",
+                    "source": "database_accuracy_store.mechanism_ready_facts",
                 }
             )
         return claims
@@ -12393,50 +12614,18 @@ class MetaboService:
         prediction_pack = prediction_pack or {}
         input_summary = analysis_pack.get("input_summary") or {}
         support_index = self.interpretation_input_support_index(analysis_pack)
+        v2_claims = self.interpretation_mechanism_fact_claims(analysis_pack, support_index, input_summary)
         theme_claims = self.interpretation_theme_claims(analysis_pack, support_index, input_summary)
         pathway_claims = self.interpretation_pathway_claims(analysis_pack, support_index, input_summary, len(theme_claims))
-        v2_claims = []
-        for index, fact in enumerate(((analysis_pack.get("database_accuracy") or {}).get("mechanism_ready_facts") or [])[:3], start=1):
-            subject = str(fact.get("subject_name") or fact.get("subject_uid") or "input chemical")
-            obj = str(fact.get("object_name") or fact.get("object_uid") or "mechanism fact")
-            predicate = str(fact.get("predicate") or fact.get("fact_type") or "supports")
-            v2_claims.append(
-                {
-                    "claim_id": f"v2_fact_{index:03d}",
-                    "headline": f"{subject} has traceable mechanism fact: {obj}",
-                    "confidence_tier": "high" if fact.get("source_record_uid") else "medium",
-                    "calibrated_confidence": 0.85 if fact.get("source_record_uid") else 0.7,
-                    "supporting_input_count": 1,
-                    "supporting_inputs": [],
-                    "basis": f"database_accuracy_store.v2 fact {fact.get('fact_uid', '')} links {subject} via {predicate} to {obj}.",
-                    "relation_chain": [subject, predicate, obj],
-                    "possible_mechanism": "This is a mechanism-ready database fact anchored to identity decisions and reaction/module/evidence source records.",
-                    "boundary": "A mechanism-ready fact is a curated factual support unit; sample activation or causality still requires experimental effect direction and context validation.",
-                    "confidence_reasons": {
-                        "positive_factors": ["accepted exact identity", "v2 mechanism-ready source trace"],
-                        "downgrade_factors": [] if fact.get("source_record_uid") else ["source record trace is incomplete"],
-                    },
-                    "evidence_refs": [
-                        {
-                            "ref_type": "database_accuracy_fact",
-                            "source_record_id": fact.get("source_record_uid", ""),
-                            "edge_uid": fact.get("evidence_assertion_uid", ""),
-                            "source_release": self.release_id,
-                        }
-                    ],
-                    "next_validation": [
-                        "Check whether the reaction/module fact has consistent direction in the original sample statistics.",
-                        "Validate representative metabolites and enzymes with orthogonal assays.",
-                    ],
-                }
-            )
-        claims = [*v2_claims, *theme_claims, *pathway_claims]
+        ranking_hypotheses = [*theme_claims, *pathway_claims]
+        claims = v2_claims if v2_claims else ranking_hypotheses
 
-        def claim_sort_key(claim: dict[str, Any]) -> tuple[int, float, int, str]:
+        def claim_sort_key(claim: dict[str, Any]) -> tuple[int, int, float, int, str]:
+            source_rank = 0 if claim.get("source") == "database_accuracy_store.mechanism_ready_facts" else 1
             tier_rank = {"high": 0, "medium": 1, "exploratory": 2, "low": 3}.get(str(claim.get("confidence_tier")), 4)
             confidence = float(claim.get("calibrated_confidence") or 0.0)
             support_count = int(claim.get("supporting_input_count") or len(claim.get("supporting_inputs") or []) or 0)
-            return (tier_rank, -confidence, -support_count, str(claim.get("claim_id") or ""))
+            return (source_rank, tier_rank, -confidence, -support_count, str(claim.get("claim_id") or ""))
 
         claims = sorted(claims, key=claim_sort_key)[:5]
         for index, claim in enumerate(claims, start=1):
@@ -12519,6 +12708,17 @@ class MetaboService:
             ],
             "appendix": {
                 "legacy_rankings_are_supporting_layer": True,
+                "ranking_hypotheses": [
+                    {
+                        "claim_id": claim.get("claim_id"),
+                        "headline": claim.get("headline"),
+                        "confidence_tier": claim.get("confidence_tier"),
+                        "source": claim.get("source"),
+                        "boundary": claim.get("boundary"),
+                        "excluded_from_core_reason": "mechanism_ready_facts_have_priority" if v2_claims else "fallback_core_claim",
+                    }
+                    for claim in ranking_hypotheses[:10]
+                ],
                 "raw_ranking_counts": {
                     "pathway_rankings": len(analysis_pack.get("pathway_rankings") or []),
                     "target_rankings": len(analysis_pack.get("target_rankings") or []),
@@ -12625,6 +12825,13 @@ class MetaboService:
                 "duplicate_matched_metabolite_uids": duplicate_uids,
                 "feature_summary": feature_summary,
                 "seed_weights": seed_weights,
+                "active_data_roots": {
+                    "normalized_root": release.get("normalized_root", ""),
+                    "literature_root": release.get("literature_root", ""),
+                    "normalized_root_selection": release.get("normalized_root_selection", {}),
+                    "literature_root_selection": release.get("literature_root_selection", {}),
+                },
+                "evidence_scope": release.get("evidence_scope", {}),
             },
             "matched": [self.analysis_pack_resolution_row(row, "matched") for row in precheck.get("matched", [])],
             "expanded_candidates": [

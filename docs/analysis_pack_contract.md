@@ -31,11 +31,10 @@ Required top-level fields:
 - `expanded_candidates`: low-weight analysis seeds generated from ambiguous or
   unmatched rows when there is usable candidate evidence. These rows are marked
   with `seed_track = "expanded"`, `seed_class` (`soft_identity`,
-  `analog_candidate`, or `class_or_pool`), and `seed_weight_multiplier`. Ratio
-  traits are review-only in the current contract and must not be decomposed into
-  ordinary metabolite abundance seeds. Expanded candidates may support
-  pathway/theme/propagation hypotheses but must not be narrated as exact
-  chemical identities.
+  `analog_candidate`, `class_or_pool`, or `ratio_component`), and
+  `seed_weight_multiplier`. Ratio components may support relative-ratio
+  pathway/theme/propagation hypotheses at low weight, but must not be narrated
+  as numerator or denominator abundance changes.
 - `expanded_summary`: counts and policy for the dual-track resolver, including
   `strict_matched_count`, `expanded_candidate_count`, `expanded_input_count`,
   `expanded_candidate_input_count`, `unresolved_input_count`,
@@ -69,7 +68,9 @@ Required top-level fields:
   pack.
 - `determinism`: request hash, release ID, config hash, contract hash, and
   `analysis_pack_hash`.
-- `release`: release metadata copied from the service envelope.
+- `release`: release metadata copied from the service envelope, including the
+  effective normalized/literature roots, root auto-selection mode, manifest
+  hashes, literature evidence metrics, and the sentence-mining scope.
 - `blocked_reasons`: explicit reasons why scoring could not proceed, empty when
   analysis is usable.
 
@@ -86,9 +87,21 @@ Dual-track resolver rule:
 top score and margin thresholds. Expanded candidates are a separate low-weight
 track. Strict identities use `1.00x`; soft identities use `0.50x`; analog
 candidates use `0.30x`; class/pool candidates use `0.20x`; ratio components use
-`0.00x` and remain review-only until a ratio-aware trait model is introduced;
-unresolved rows use `0`. If one input row yields multiple expanded candidates,
-that class weight is split across those candidates.
+`0.25x`; unresolved rows use `0`. If one input row yields multiple expanded
+candidates, that class weight is split across those candidates. Ratio component
+direction is relative-ratio semantics only and must not be rewritten as measured
+metabolite abundance direction.
+
+Mechanism-first report rule:
+
+`interpretation_report.v1` prioritizes
+`database_accuracy_store.v2.analysis_view.mechanism_ready_facts` for core
+candidate mechanism conclusions. `role_unknown_reaction_fact` allows only
+reaction-participation wording. `directional_reaction_fact` may support a
+direction-aware candidate reaction statement, still bounded as research
+prioritization. Legacy pathway, target, disease, and drug ranking rows are
+supporting hypotheses or appendix items when mechanism-ready facts are
+available.
 
 Prediction calibration rule:
 

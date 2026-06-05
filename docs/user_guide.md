@@ -6,7 +6,7 @@
 
 ## 一、最快使用流程
 
-如果当前目录已经有 `normalized_store/`、`graph_projection/`、`compound_match_index/` 和 `literature_evidence/`，可以直接启动本地界面：
+如果当前目录已经有 `normalized_store/`、`graph_projection/`、`compound_match_index/` 和 `literature_evidence/`，可以直接启动本地界面。服务未显式指定 root 时，会优先使用论文验证用增强目录 `normalized_store_scispacy_abstract_full_20260604T172741` 和 `literature_evidence_biomedbert_full_20260604T172741`；若它们不存在，则回退到通用目录：
 
 ```powershell
 python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T002254 serve --port 8765
@@ -30,7 +30,7 @@ http://127.0.0.1:8765/flow-test
 2. 选择一个问题，必要时填写癌种、组织、细胞类型等背景。
 3. 选择解释后端。默认 `本地安全模板` 为推荐基线；外部 LLM 可在页面里填写一次性 API 配置，且只负责叙述，不参与评分或改图。
 4. 点击“开始分析”。
-5. 先看“输入检查”和“实体匹配队列”，再看解释、文献证据、通路/靶点/疾病排序和研究优先级提示。
+5. 先看“输入检查”和“实体匹配队列”，再看核心候选机制事实、文献证据、通路/靶点/疾病排序和研究优先级提示。
 
 ## 二、输入格式
 
@@ -83,20 +83,20 @@ raw_lake/European_point/European_trait_annotations.csv
 ```
 
 模板见 [../config/european_trait_annotations.template.csv](../config/european_trait_annotations.template.csv)，字段说明见
-[gcst_annotation_dependency.md](gcst_annotation_dependency.md)。如果该文件不存在，系统仍能读取表格和保留 GCST-level 记录，但很多行会进入 unresolved 或低置信解释。
+[gcst_annotation_dependency.md](gcst_annotation_dependency.md)。如果该文件不存在，系统仍能读取表格和保留 GCST-level 记录，但很多行会进入 unresolved 或低置信解释。`ratio_component` 只作为 `0.25x` 低权重相对比例线索，不得解读为分子上调或分母下调。
 
 ## 三、界面结果怎么看
 
 | 区块 | 含义 | 建议动作 |
 | --- | --- | --- |
 | 输入检查 | 输入数、匹配数、歧义数、未匹配数、文献证据数 | 如果歧义或未匹配很多，先修正输入 |
-| 可信度阅读卡 | 将输入匹配、核心通路和扩展假设分层 | 先看总体可信度，再决定是否只作探索性解释 |
+| 可信度阅读卡 | 将输入匹配、机制事实、核心通路和扩展假设分层 | 先看总体可信度，再决定是否只作探索性解释 |
 | 提示与阻断原因 | 质量警告、解释阻断、安全 guard 信息 | 高风险提示需要人工复核 |
 | 实体匹配队列 | 已匹配、歧义、未匹配三类输入 | 歧义项不会进入评分 |
-| 解释摘要 | 本地或外部解释器生成的证据绑定叙述 | 每段都应有来源引用 |
+| 解释摘要 | 本地或外部解释器生成的证据绑定叙述 | 每段都应有来源引用，且不得新增事实 |
 | 文献证据包 | 支持关系数、PMID、支持类别、最高文献概率 | 用于回查原始文献证据 |
 | 交互证据图谱 | 可点击浏览输入代谢物、通路、靶点和疾病/表型关联 | 用于理解分析流，不代表相邻节点都是直接反应边 |
-| 通路/靶点/疾病排序 | 图传播、通路富集和证据加权后的排序 | 看分数，也看“证据可追溯” |
+| 通路/靶点/疾病排序 | 图传播、通路富集和证据加权后的排序 | 默认作为研究优先级或附录候选，不能替代 mechanism-ready facts |
 | 解释路径 | 从输入代谢物到终端节点的图谱路径 | 用于解释为什么排到前面 |
 | 研究优先级提示 | 药物/细胞背景 overlay 的研究提示 | 只能作为研究优先级，不是临床建议 |
 | 原始 JSON | 完整接口返回 | 调试、复现、下游集成使用 |
@@ -105,13 +105,13 @@ raw_lake/European_point/European_trait_annotations.csv
 
 - 数据源下载：`download_all.ps1` 和 `scripts/download_databases.py` 根据 `config/source_catalog.toml` 抓取开放核心数据源，并生成 manifest。
 - GCST 注释依赖：`raw_lake/European*/European_trait_annotations.csv` 是本地数据依赖，不随代码仓库分发；schema 见 `config/european_trait_annotations.template.csv`。
-- 文献语料依赖：文献证据 overlay 需要用户按 [../config/literature_search_strategy.json](../config/literature_search_strategy.json) 在本地重建；仓库不分发下载的文献记录、摘要、全文、影响因子表或句级抽取结果，边界说明见 [literature_corpus_dependency.md](literature_corpus_dependency.md)。
+- 文献语料依赖：文献证据 overlay 需要用户按 [../config/literature_search_strategy.json](../config/literature_search_strategy.json) 在本地重建；仓库不分发下载的文献记录、摘要、全文文本、影响因子表或句级抽取结果。当前论文口径为 title/abstract 句级抽取，并保留本地全文文本 path/checksum 可追溯资源；边界说明见 [literature_corpus_dependency.md](literature_corpus_dependency.md)。
 - 规范化数据仓：`scripts/build_normalized_store.py` 生成代谢物、基因、通路、疾病、靶点、文章和句子等规范表。
 - 图谱投影：`scripts/build_graph_projection.py` 生成节点、边、解析索引和稀疏图。
 - 化合物匹配索引：`scripts/build_compound_match_index.py` 支持名称、外部 ID、InChIKey、分子式、m/z、RT/MS2 扩展匹配。
 - 文献证据层：`scripts/build_literature_evidence.py` 生成句级提及、候选关系和边支持证据。
 - 分析服务：`scripts/metabo_service.py` 提供只读 API、CLI 和 Web 工作台。
-- 安全解释层：`scripts/llm_safe_adapter.py` 把结构化分析改写为有来源引用的解释，禁止创建事实、修改评分或写入图谱。
+- 安全解释层：`scripts/llm_safe_adapter.py` 把结构化分析改写为有来源引用的解释，禁止创建事实、做实体解析最终裁决、修改评分或写入图谱。DeepSeek 或其他 OpenAI-compatible 后端只是可选叙述层。
 - 预测 overlay：`manual_sources/prediction_overlays/<release_id>/` 可放入药物靶点和细胞背景表，作为研究优先级提示。
 - 回归验证：`scripts/run_phase15_validation.py`、`scripts/run_llm_safe_adapter_validation.py` 等用于发布前验收。
 
@@ -122,7 +122,7 @@ raw_lake/European_point/European_trait_annotations.csv
 | 端点 | 方法 | 用途 |
 | --- | --- | --- |
 | `/` 或 `/chat` | GET | Web 工作台 |
-| `/releases` | GET | 当前 release、表行数、图谱规模 |
+| `/releases` | GET | 当前 release、表行数、图谱规模、实际 evidence root 和 manifest 摘要 |
 | `/resolve` | POST | 单实体解析 |
 | `/precheck/metabolites` | POST | 只做代谢物输入预检查 |
 | `/analyze/metabolites` | POST | 分析代谢物表，返回 analysis pack |
@@ -151,7 +151,7 @@ python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T00225
 如果没有标准 `log2FC`，会把 `mean_diff`、`cohen_d`、`z_wilcoxon` 等保留为带标签的方向性效应量，
 仅作为图谱种子权重和研究优先级信号，不改写成实测丰度结论。
 
-对 GCST-only 表格，`European_trait_annotations.csv` 决定 accession 能否进入代谢物候选、ratio component 或稳定化合物 ID 解析；没有该文件时，输出应按 trait-level 或低置信结果解读。
+对 GCST-only 表格，`European_trait_annotations.csv` 决定 accession 能否进入代谢物候选、ratio component 或稳定化合物 ID 解析；没有该文件时，输出应按 trait-level 或低置信结果解读。ratio component 可进入低权重探索种子，但报告必须保留“相对比例”语义，不能改写为实测丰度升降。
 
 Web 工作台选择 `差异结果表` 时，提交入口仍是 `/chat`：
 服务会先调用差异表选择/解析逻辑生成冻结 `analysis_pack`，再把该结果交给 `/explain`
@@ -180,7 +180,7 @@ python .\scripts\run_phase15_validation.py --workspace . --release-id mvp_202605
 
 ## 七、外部 LLM
 
-外部 LLM 默认关闭。启用时仍然只允许读 `/analyze/metabolites`、`/analyze/differential-table`、`/evidence`、`/subgraph`、`/releases` 的冻结结果，输出必须通过本地 guard。
+外部 LLM 默认关闭。启用时仍然只允许读 `/analyze/metabolites`、`/analyze/differential-table`、`/evidence`、`/subgraph`、`/releases` 的冻结结果，输出必须通过本地 guard。外部模型只负责叙述，不能参与实体解析最终裁决、证据选择、评分、图谱写入或机制事实创建。
 
 ### 方式 A：页面内一次性配置
 
@@ -232,5 +232,5 @@ python .\scripts\metabo_service.py --workspace . --release-id mvp_20260513T00225
 - 页面显示 `release: unavailable`：确认服务是通过 `metabo_service.py serve` 启动，而不是直接打开 HTML 文件。
 - 结果里待复核很多：优先使用 HMDB、ChEBI、PubChem CID、InChIKey 等稳定 ID，减少只用通用名称。
 - 通路或靶点为空：检查输入是否匹配成功，以及 `graph_projection/<release_id>/` 是否存在。
-- 文献证据为空：检查 `literature_evidence/<release_id>/` 是否存在，或降低分析样本对证据覆盖的期待。
+- 文献证据为空：检查 `/releases` 中的 `evidence_scope.literature_root`，优先确认增强目录 `literature_evidence_biomedbert_full_20260604T172741/<release_id>/` 是否存在；旧 `literature_evidence/<release_id>/` 只是 fallback。
 - 外部 LLM 被阻断：先点页面里的“测试 LLM 连接”或调用 `/llm/test`。`401/403` 通常是 API key 问题，`404` 多半是 endpoint 或 model 问题，`transport_error` 通常是 DNS、代理、TLS 或超时。

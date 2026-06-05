@@ -27,23 +27,23 @@ raw_lake/European_point/European_trait_annotations.csv
 
 普通代谢物表不需要该 GCST annotation 文件；包含 `name`、`metabolite`、`HMDB`、`ChEBI`、`PubChem CID`、`InChIKey`、`log2FC`、`pvalue`、`padj`、`direction` 等常见列时，可使用常规代谢物解析路径。
 
-文献证据 overlay 使用本地重建的文献语料。GitHub 仓库只记录检索式、时间范围、筛选条件和重建边界，不分发文献记录、摘要、全文、影响因子表或句级抽取结果。检索策略见 [config/literature_search_strategy.json](config/literature_search_strategy.json)，说明见 [docs/literature_corpus_dependency.md](docs/literature_corpus_dependency.md)。
+文献证据 overlay 使用本地重建的 PubMed/PMC 文本语料。当前论文口径为 title/abstract 句级抽取，并保留本地全文文本 path、byte size 和 checksum 作为可追溯资源；如需声称全文句级挖掘，应使用 `--article-sentence-scope full` 单独重建。GitHub 仓库只记录检索式、时间范围、筛选条件和重建边界，不分发文献记录、摘要、全文文本、影响因子表或句级抽取结果。检索策略见 [config/literature_search_strategy.json](config/literature_search_strategy.json)，说明见 [docs/literature_corpus_dependency.md](docs/literature_corpus_dependency.md)。
 
 ## 可选云端 NLP 重建
 
-如果本地机器不足以处理全文语料或 Transformer 推理，可以在自己的云端环境运行可选 NLP 重建，再把生成的数据目录下载回本地测试。GitHub 只保存代码、命令和边界说明，不保存训练结果、模型权重、文献语料或任何私有服务器路径。
+如果本地机器不足以处理文献文本或 Transformer 推理，可以在自己的云端环境运行可选 NLP 重建，再把生成的数据目录下载回本地测试。GitHub 只保存代码、命令和边界说明，不保存训练结果、模型权重、文献语料或任何私有服务器路径。
 
 scispaCy 句子切分和候选实体 span：
 
 ```bash
 python scripts/build_normalized_store.py \
   --release-id mvp_20260513T002254 \
-  --article-sentence-scope full \
+  --article-sentence-scope abstract \
   --sentence-parser hybrid \
   --scispacy-model en_core_sci_sm
 ```
 
-`hybrid` 会优先使用 scispaCy；如果可选依赖或模型不可用，会降级到规则切分并在 manifest notes 中记录。`scispacy` 模式则要求模型必须可用。scispaCy 输出的 `sentence_entity_candidates` 只是候选 span，不会自动成为规范化事实。
+`hybrid` 会优先使用 scispaCy；如果可选依赖或模型不可用，会降级到规则切分并在 manifest notes 中记录。`scispacy` 模式则要求模型必须可用。scispaCy 输出的 `sentence_entity_candidates` 只是候选 span，不会自动成为规范化事实。若需要全文句级 materialization，可把 `--article-sentence-scope` 改为 `full` 并重新生成 evidence。
 
 BiomedBERT/PubMedBERT 句子相关性重排：
 
@@ -57,7 +57,7 @@ python scripts/build_literature_evidence.py \
 
 该模式只对规则抽取出的文献关系进行相关性降权和重排，并写出 `sentence_relevance.parquet`；它不能创建新事实、不能提升弱证据为高置信结论，也不能替代人工复核。
 
-可选 NLP 重建后，本地测试通常需要同步这些生成目录：
+可选 NLP 重建后，本地测试通常需要同步这些生成目录。服务在未显式传入 root 时，会优先读取当前论文验证用增强目录 `normalized_store_scispacy_abstract_full_20260604T172741` 和 `literature_evidence_biomedbert_full_20260604T172741`；若不存在，则回退到 `normalized_store` 和 `literature_evidence`：
 
 ```text
 normalized_store/<release_id>/
@@ -70,7 +70,7 @@ literature_evidence/<release_id>/
 learning_runs/<run_id>/
 ```
 
-如果把可选 NLP 结果放在独立目录中，可以用自定义 root 启动本地工作台，例如：
+如果把可选 NLP 结果放在其他独立目录中，可以用自定义 root 启动本地工作台，例如：
 
 ```powershell
 python scripts\metabo_service.py `
@@ -82,17 +82,17 @@ python scripts\metabo_service.py `
 ```
 
 启动后用 `/releases` 检查 `sentence_entity_candidates` 和 `sentence_relevance`
-是否非空，确认工作台正在读取新的 scispaCy/BiomedBERT evidence。
+是否非空，并检查返回的 `evidence_scope.normalized_root`、`evidence_scope.literature_root` 和 manifest hash，确认工作台正在读取新的 scispaCy/BiomedBERT evidence。旧的 `literature_evidence/<release_id>` 可作为 legacy fallback，不建议作为论文正式 evidence root。
 
 ## 方法学概览
 
 1. **输入识别**：系统先判断输入是普通代谢物表、GCST/trait 表，还是已经计算好的两组差异结果表。差异表只读取标识符、效应量、显著性、方向和分组元数据，不读取原始丰度矩阵。
 2. **GCST 注释映射**：对 GCST-only 输入，系统用本地 `European_trait_annotations.csv` 将 accession 映射到 reported trait、候选代谢物、ratio component、class/pool 线索或稳定化合物 ID。没有 annotation 时，GCST 只能作为 trait-level 记录保留。
-3. **实体解析**：代谢物名称和稳定 ID 会进入冻结的 compound match index。严格匹配保留为较高可信度种子；歧义名称、ratio trait、class/pool 或 analog candidate 仅作为低权重扩展种子。
+3. **实体解析**：代谢物名称和稳定 ID 会进入冻结的 compound match index。严格匹配保留为较高可信度种子；歧义名称、ratio trait、class/pool 或 analog candidate 仅作为低权重扩展种子。`ratio_component` 使用 `0.25x` 探索权重，但只能表示相对比例线索，不能推出分子上调或分母下调。
 4. **差异信号处理**：`log2FC`、`mean_diff`、`cohen_d`、`z_wilcoxon`、FDR/q 值等被保留为带标签的效应量。若输入并非直接丰度测量，输出会标记为 surrogate differential signal，避免将其表述为实测代谢物丰度变化。
-5. **知识图谱与证据连接**：解析后的种子连接到代谢物、通路、反应、基因/靶点、疾病和文献证据 overlay。排名结果保留 edge、source record、literature evidence 或模型输出引用。
-6. **置信度与边界**：结论按严格匹配、扩展候选、图传播、文献支持和模型-only 信号分层。弱证据、歧义匹配、ratio component、未复核 GCST 和纯模型排序会被降级。
-7. **叙述层**：本地模板或外部 LLM 只读取冻结 analysis pack。外部 LLM 不能创建实体、改写评分、修改图谱或补充无来源事实。
+5. **知识图谱与证据连接**：解析后的种子连接到代谢物、反应、通路、基因/靶点、疾病和文献证据 overlay。`interpretation_report` 的核心候选结论优先使用 `database_accuracy_store.v2` 中的 `mechanism_ready_facts`；通路、靶点、疾病和药物 ranking 作为研究优先级或附录式候选保留。
+6. **置信度与边界**：结论按严格匹配、扩展候选、反应/机制事实、文献支持、图传播和模型-only 信号分层。弱证据、歧义匹配、ratio component、未复核 GCST、context mismatch 和纯模型排序会被降级。
+7. **叙述层**：本地模板或可选 OpenAI-compatible/DeepSeek 外部 LLM 只读取冻结 `analysis_pack`、`interpretation_report`、证据和子图。外部 LLM 不能创建实体、做实体解析最终裁决、改写评分、修改图谱或补充无来源事实。
 
 快速打开互动界面：
 
