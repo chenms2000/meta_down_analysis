@@ -1612,6 +1612,27 @@ class MetaboServiceTests(unittest.TestCase):
             self.assertIn("ovarian cancer", reranked[0]["context_relevance_context_hits"])
             self.assertGreater(reranked[0]["context_relevance_score"], reranked[1]["context_relevance_score"])
 
+    def test_structured_required_context_fields_are_normalized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = self.make_service(Path(tmp))
+            context = service.normalize_prediction_context(
+                {
+                    "cancer_type": "ovarian cancer",
+                    "tissue": "ovary",
+                    "cell_type": "epithelial",
+                    "comparison": "tumor vs adjacent",
+                    "analysis_goal": "tumor metabolism",
+                }
+            )
+
+            self.assertTrue(context["has_context"])
+            self.assertEqual(set(context["fields"]["cancer_type"]), {"cancer", "ovarian cancer", "ovarian"})
+            self.assertIn("ovary", context["fields"]["tissue"])
+            self.assertIn("epithelial", context["fields"]["cell_type"])
+            self.assertIn("tumor vs adjacent", context["fields"]["comparison"])
+            self.assertIn("tumor metabolism", context["fields"]["analysis_goal"])
+            self.assertIn("tumor metabolism", context["terms"])
+
     def test_prediction_pack_uses_overlay_targets_and_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

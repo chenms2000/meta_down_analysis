@@ -423,6 +423,13 @@
       align-items: end;
     }
 
+    .context-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
     .guide {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -1058,7 +1065,7 @@
       <div class="workspace-body">
         <div class="flow" aria-label="使用流程">
           <div class="step"><strong>1. 准备数据</strong><span>CSV/TSV、JSON 或自然语言列表</span></div>
-          <div class="step"><strong>2. 补充背景</strong><span>癌种、组织、细胞类型可选</span></div>
+          <div class="step"><strong>2. 补充背景</strong><span>结构化必填 context</span></div>
           <div class="step"><strong>3. 运行分析</strong><span>规范化、图传播、证据回链</span></div>
           <div class="step"><strong>4. 查看结果</strong><span>先看质量，再看解释和排名</span></div>
         </div>
@@ -1068,7 +1075,7 @@
           <div class="guide-content">
             <p>推荐列名：<code>name</code>、<code>metabolite</code>、<code>HMDB</code>、<code>ChEBI</code>、<code>PubChem CID</code>、<code>KEGG</code>、<code>InChIKey</code>、<code>formula</code>、<code>mz</code>、<code>adduct</code>、<code>log2FC</code>、<code>pvalue</code>、<code>padj</code>、<code>direction</code>。</p>
             <p>匹配规则会把不确定项放进复核队列，不会强行进入评分。结果里的“证据可追溯”表示排名项至少能回链到图谱边、文献证据或来源记录。</p>
-            <p>背景 JSON 可填写癌种、组织、细胞类型或实验条件等字段。软匹配会加权相关背景，硬匹配只保留明确命中的背景条目。</p>
+            <p>上传正式 CSV 时需要填写结构化背景字段。软匹配会加权相关背景，硬匹配只保留明确命中的背景条目。</p>
           </div>
         </details>
 
@@ -1107,7 +1114,7 @@
           <div class="form-section">
             <div class="section-title">
               <strong>研究问题与背景</strong>
-              <span>自由填写问题和研究背景</span>
+              <span>结构化背景必填</span>
             </div>
 
             <label class="input-shell">
@@ -1117,11 +1124,33 @@
 
             <span class="hint">示例问题：解释主要通路和方向性；指出需要复核的输入；整理成组会汇报摘要；列出优先验证的通路、靶点和证据依据。</span>
 
-            <div class="compact-grid">
+            <div class="context-grid" aria-label="结构化背景">
               <label class="input-shell">
-                背景 JSON 或关键词
-                <input id="context" type="text" placeholder="例如：ICC, intrahepatic cholangiocarcinoma, liver, epithelial, tumor vs adjacent">
+                cancer type *
+                <input id="context-cancer-type" type="text" required placeholder="例如：ovarian cancer">
               </label>
+              <label class="input-shell">
+                tissue / organ *
+                <input id="context-tissue" type="text" required placeholder="例如：ovary">
+              </label>
+              <label class="input-shell">
+                cell type *
+                <input id="context-cell-type" type="text" required placeholder="例如：epithelial">
+              </label>
+              <label class="input-shell">
+                comparison *
+                <input id="context-comparison" type="text" required placeholder="例如：tumor vs adjacent">
+              </label>
+              <label class="input-shell">
+                analysis goal *
+                <input id="context-analysis-goal" type="text" required placeholder="例如：tumor metabolism">
+              </label>
+              <label class="input-shell">
+                extra context
+                <input id="context-extra" type="text" placeholder="可选：别名、亚型、平台或实验条件">
+              </label>
+            </div>
+            <div class="compact-grid">
             <label>
               背景模式
               <select id="context-mode">
@@ -1131,7 +1160,7 @@
             </label>
             </div>
 
-            <span class="hint">正式 CSV 如果不含组织/癌种/细胞类型，建议填写关键词；背景只影响贴合度重排和解释边界，不会写入图谱事实。</span>
+            <span class="hint">这些字段会组成结构化 context：<code>cancer_type</code>、<code>tissue</code>、<code>cell_type</code>、<code>comparison</code>、<code>analysis_goal</code>。它们只影响贴合度重排和解释边界，不会写入图谱事实。</span>
           </div>
 
           <div class="form-section">
@@ -2485,13 +2514,36 @@
       }
     }
 
-    function parseContextText() {
-      const contextText = el("context").value.trim();
-      if (!contextText) return null;
+    const REQUIRED_CONTEXT_FIELDS = [
+      ["context-cancer-type", "cancer_type", "cancer type"],
+      ["context-tissue", "tissue", "tissue / organ"],
+      ["context-cell-type", "cell_type", "cell type"],
+      ["context-comparison", "comparison", "comparison"],
+      ["context-analysis-goal", "analysis_goal", "analysis goal"]
+    ];
+
+    function structuredContextPayload(options = {}) {
+      const required = options.required !== false;
+      const missing = [];
+      const context = {};
+      REQUIRED_CONTEXT_FIELDS.forEach(([id, key, label]) => {
+        const value = el(id).value.trim();
+        if (!value && required) missing.push(label);
+        if (value) context[key] = value;
+      });
+      const extra = el("context-extra").value.trim();
+      if (extra) context.context_terms = extra;
+      if (missing.length) {
+        throw new Error(`请先填写结构化背景必填项：${missing.join(", ")}`);
+      }
+      return Object.keys(context).length ? context : null;
+    }
+
+    function contextSignature() {
       try {
-        return JSON.parse(contextText);
+        return JSON.stringify(structuredContextPayload({ required: false }) || {});
       } catch {
-        return { context_terms: contextText };
+        return "{}";
       }
     }
 
@@ -2834,7 +2886,7 @@
     }
 
     function currentPrecheckSignature() {
-      return `${selectedInputMode()}\n${el("table-text").value}`;
+      return `${selectedInputMode()}\n${el("table-text").value}\n${contextSignature()}\n${el("context-mode").value}`;
     }
 
     function updateInputModeHint() {
@@ -2899,7 +2951,7 @@
         input_mode: mode,
         table_text: el("table-text").value,
         question: el("question").value,
-        context: parseContextText(),
+        context: structuredContextPayload({ required: true }),
         context_mode: el("context-mode").value,
         adapter_backend: el("backend").value,
         max_paths: intValue("max-paths", 25),
@@ -2971,13 +3023,12 @@
         "Carnitine,0.64,0.041,0.09,up"
       ].join("\n");
       el("question").value = "流程测试：请解释这组肿瘤代谢差异输入的主要主题、证据边界和需要复核的条目。";
-      el("context").value = JSON.stringify({
-        cancer_type: "glioma",
-        tissue: "brain",
-        cell_type: "glial tumor cell",
-        sample_type: "tumor tissue",
-        purpose: "workflow_test"
-      });
+      el("context-cancer-type").value = "glioma";
+      el("context-tissue").value = "brain";
+      el("context-cell-type").value = "glial tumor cell";
+      el("context-comparison").value = "tumor vs adjacent";
+      el("context-analysis-goal").value = "tumor metabolism";
+      el("context-extra").value = "sample_type: tumor tissue; workflow_test";
       el("context-mode").value = "soft";
       el("backend").value = "local";
       el("input-mode").value = "differential_table";
@@ -2999,6 +3050,18 @@
     });
 
     el("table-text").addEventListener("input", resetPrecheck);
+    [
+      "context-cancer-type",
+      "context-tissue",
+      "context-cell-type",
+      "context-comparison",
+      "context-analysis-goal",
+      "context-extra",
+      "context-mode"
+    ].forEach((id) => {
+      el(id).addEventListener("input", resetPrecheck);
+      el(id).addEventListener("change", resetPrecheck);
+    });
 
     el("input-mode").addEventListener("change", () => {
       updateInputModeHint();
@@ -3159,15 +3222,19 @@
 
     el("chat-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      let payload;
+      try {
+        payload = buildAnalysisPayload();
+      } catch (error) {
+        setStatus(error.message, "err");
+        return;
+      }
       const button = el("submit");
       button.disabled = true;
       setStatus(`Analyzing ${tableTextStatsLabel(el("table-text").value)}; first release load may take tens of seconds`, "warn");
       setStatus("分析中，首次加载 release 可能需要几十秒", "warn");
       results.innerHTML = `<div class="empty-state">正在进行实体匹配、图传播和证据汇总。</div>`;
       setStatus(`Analyzing ${tableTextStatsLabel(el("table-text").value)}; first release load may take tens of seconds`, "warn");
-      const payload = {
-        ...buildAnalysisPayload()
-      };
       try {
         if (selectedInputMode() === "metabolite_table") {
           await runPrecheck({ silent: true });
