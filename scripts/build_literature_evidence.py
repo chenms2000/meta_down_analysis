@@ -40,6 +40,8 @@ DEFAULT_MIN_RELATION_PROB = 0.20
 DEFAULT_MIN_SUPPORT_PROB = 0.25
 DEFAULT_MAX_MENTIONS_PER_SENTENCE = 14
 DEFAULT_BATCH_SIZE = 10_000
+DEFAULT_RELEVANCE_BATCH_SIZE = 16
+DEFAULT_RELEVANCE_MODEL = "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
 BUILDER_VERSION = "phase2_lite.literature_evidence.20260513"
 PRECISION_FILTER_SCHEMA_VERSION = "evidence_precision_filters.v1"
 SUPPORTED_ASSERTION_STATUSES = {"support", "contradict", "uncertain", "background"}
@@ -735,6 +737,24 @@ SUPPORT_SCHEMA = pa.schema(
     ]
 ) if pa is not None else None
 
+RELEVANCE_SCHEMA = pa.schema(
+    [
+        ("sentence_uid", pa.string()),
+        ("article_uid", pa.string()),
+        ("pmid", pa.string()),
+        ("pmcid", pa.string()),
+        ("section", pa.string()),
+        ("model_name", pa.string()),
+        ("relevance_mode", pa.string()),
+        ("relevance_score", pa.float64()),
+        ("decision", pa.string()),
+        ("score_components_json", pa.string()),
+        ("source_release", pa.string()),
+        ("parser_hash", pa.string()),
+        ("config_hash", pa.string()),
+    ]
+) if pa is not None else None
+
 
 class ParquetBatchWriter:
     def __init__(self, path: Path, schema: pa.Schema):
@@ -759,6 +779,156 @@ class ParquetBatchWriter:
             pq.write_table(pa.Table.from_pylist([], schema=self.schema), self.path)
             return
         self.writer.close()
+
+
+class PubMedBertRelevanceScorer:
+    """Embedding-similarity relevance scorer; it filters/reranks but does not extract facts."""
+
+    anchors = [
+        "tumor metabolism mechanism metabolic reprogramming cancer metabolite pathway gene regulation",
+        "cancer cells glycolysis lactate glutamine lipid metabolism metabolic flux assay",
+        "metabolite abundance altered in tumor tissue pathway enzyme transporter mechanism",
+    ]
+
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+        try:
+            import torch  # type: ignore
+            from transformers import AutoModel, AutoTokenizer  # type: ignore
+        except ImportError as exc:  # pragma: no cover - depends on optional env.
+            raise RuntimeError("PubMedBERT relevance mode requires optional dependencies 'torch' and 'transformers'.") from exc
+        self.torch = torch
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModel.from_pretrained(model_name)
+        except Exception as exc:  # pragma: no cover - depends on optional env/model cache.
+            raise RuntimeError(f"Unable to load relevance model '{model_name}'. Install/cache the model before using --relevance-mode pubmedbert.") from exc
+        self.model.eval()
+        with torch.no_grad():
+            self.anchor_embedding = torch.nn.functional.normalize(self._embed(self.anchors).mean(dim=0, keepdim=True), p=2, dim=1)
+
+    def _embed(self, texts: list[str]):
+        torch = self.torch
+        encoded = self.tokenizer(texts, padding=True, truncation=True, max_length=256, return_tensors="pt")
+        with torch.no_grad():
+            output = self.model(**encoded)
+            hidden = output.last_hidden_state
+            mask = encoded["attention_mask"].unsqueeze(-1).to(hidden.dtype)
+            pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
+            return torch.nn.functional.normalize(pooled, p=2, dim=1)
+
+    def score_many(self, texts: list[str]) -> list[tuple[float, dict[str, Any]]]:
+        torch = self.torch
+        cleaned = [re.sub(r"\s+", " ", str(text or "")).strip() for text in texts]
+        results: list[tuple[float, dict[str, Any]]] = []
+        nonempty_indices = [idx for idx, text in enumerate(cleaned) if text]
+        scores_by_index: dict[int, tuple[float, dict[str, Any]]] = {}
+        if nonempty_indices:
+            embeddings = self._embed([cleaned[idx] for idx in nonempty_indices])
+            cosines = torch.matmul(embeddings, self.anchor_embedding.T).squeeze(dim=1).tolist()
+            for idx, cosine_value in zip(nonempty_indices, cosines):
+                cosine = float(cosine_value)
+                relevance_score = clamp_unit((cosine + 1.0) / 2.0)
+                scores_by_index[idx] = (
+                    relevance_score,
+                    {
+                        "scorer": "pubmedbert_embedding_similarity",
+                        "cosine_to_tumor_metabolism_anchor": round(cosine, 6),
+                        "formula": "(cosine(sentence_embedding,tumor_metabolism_anchor)+1)/2",
+                        "fact_boundary": "relevance score is used only for filtering/reranking and probability weighting",
+                    },
+                )
+        for idx, text in enumerate(cleaned):
+            results.append(scores_by_index.get(idx, (0.0, {"scorer": "pubmedbert_embedding_similarity", "empty_text": not bool(text)})))
+        return results
+
+    def score(self, text: str) -> tuple[float, dict[str, Any]]:
+        return self.score_many([text])[0]
+
+
+def relevance_decision(score: float) -> str:
+    if score >= 0.65:
+        return "evidence_candidate"
+    if score >= 0.45:
+        return "background"
+    return "skip"
+
+
+def relevance_row(row: dict[str, Any], scorer: PubMedBertRelevanceScorer, cfg_hash: str) -> tuple[dict[str, Any], float]:
+    score, components = scorer.score(str(row.get("sentence_text") or ""))
+    result = {
+        "sentence_uid": str(row.get("sentence_uid") or ""),
+        "article_uid": str(row.get("article_uid") or ""),
+        "pmid": str(row.get("pmid") or ""),
+        "pmcid": str(row.get("pmcid") or ""),
+        "section": str(row.get("section") or ""),
+        "model_name": scorer.model_name,
+        "relevance_mode": "pubmedbert",
+        "relevance_score": round(score, 6),
+        "decision": relevance_decision(score),
+        "score_components_json": stable_json(components),
+        "source_release": str(row.get("source_release") or ""),
+        "parser_hash": str(row.get("parser_hash") or ""),
+        "config_hash": cfg_hash,
+    }
+    return result, score
+
+
+def relevance_rows(rows: list[dict[str, Any]], scorer: PubMedBertRelevanceScorer, cfg_hash: str) -> list[tuple[dict[str, Any], float]]:
+    scored = scorer.score_many([str(row.get("sentence_text") or "") for row in rows])
+    output: list[tuple[dict[str, Any], float]] = []
+    for row, (score, components) in zip(rows, scored):
+        output.append(
+            (
+                {
+                    "sentence_uid": str(row.get("sentence_uid") or ""),
+                    "article_uid": str(row.get("article_uid") or ""),
+                    "pmid": str(row.get("pmid") or ""),
+                    "pmcid": str(row.get("pmcid") or ""),
+                    "section": str(row.get("section") or ""),
+                    "model_name": scorer.model_name,
+                    "relevance_mode": "pubmedbert",
+                    "relevance_score": round(score, 6),
+                    "decision": relevance_decision(score),
+                    "score_components_json": stable_json(components),
+                    "source_release": str(row.get("source_release") or ""),
+                    "parser_hash": str(row.get("parser_hash") or ""),
+                    "config_hash": cfg_hash,
+                },
+                score,
+            )
+        )
+    return output
+
+
+def apply_relevance_weight(row: dict[str, Any], relevance_score: float | None, min_prob: float) -> dict[str, Any] | None:
+    if relevance_score is None:
+        return row
+    original_prob = clamp_unit(row.get("calibrated_prob", 0.0))
+    multiplier = 0.5 + 0.5 * clamp_unit(relevance_score)
+    final_prob = clamp_unit(original_prob * multiplier)
+    if final_prob < min_prob:
+        return None
+    components = read_score_components(row)
+    components["relevance_weight"] = {
+        "relevance_score": round(clamp_unit(relevance_score), 6),
+        "multiplier": round(multiplier, 6),
+        "original_calibrated_prob": round(original_prob, 6),
+        "formula": "rule_relation_prob*(0.5+0.5*relevance_score)",
+        "fact_boundary": "model relevance only downweights/reranks rule-extracted relation candidates",
+    }
+    row = dict(row)
+    row["calibrated_prob"] = round(final_prob, 6)
+    row["score_components_json"] = stable_json(components)
+    return row
+
+
+def read_score_components(row: dict[str, Any]) -> dict[str, Any]:
+    try:
+        value = json.loads(str(row.get("score_components_json") or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def add_surface(
@@ -1497,6 +1667,10 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
         "min_support_prob": args.min_support_prob,
         "max_mentions_per_sentence": args.max_mentions_per_sentence,
         "max_sentences": args.max_sentences,
+        "relevance_mode": args.relevance_mode,
+        "relevance_model": args.relevance_model if args.relevance_mode == "pubmedbert" else "",
+        "relevance_batch_size": args.relevance_batch_size if args.relevance_mode == "pubmedbert" else 0,
+        "relevance_formula": "rule_relation_prob*(0.5+0.5*relevance_score) when relevance_mode=pubmedbert",
         "limit_to_graph_entities": not args.no_graph_entity_limit,
         "precision_filter_schema_version": precision_filters.get("schema_version", ""),
         "precision_filter_config_path": precision_config_path,
@@ -1504,6 +1678,7 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
     }
     cfg_hash = content_hash(config)[:16]
     started = time.time()
+    relevance_scorer = PubMedBertRelevanceScorer(args.relevance_model) if args.relevance_mode == "pubmedbert" else None
 
     lexicon, lexicon_stats = build_lexicon(
         normalized_dir,
@@ -1513,20 +1688,22 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
     )
     article_license_by_uid = load_article_license_map(normalized_dir)
     mention_writer = ParquetBatchWriter(output_dir / "sentence_mentions.parquet", MENTION_SCHEMA)
+    relevance_writer = ParquetBatchWriter(output_dir / "sentence_relevance.parquet", RELEVANCE_SCHEMA)
     mention_batch: list[dict[str, Any]] = []
+    relevance_batch: list[dict[str, Any]] = []
     relation_rows: list[dict[str, Any]] = []
     sentence_count = 0
     sentence_with_mentions = 0
+    relevance_scored_count = 0
+    relevance_decision_counter: Counter[str] = Counter()
     relation_counter: Counter[str] = Counter()
     mention_counter: Counter[str] = Counter()
 
     sentence_path = normalized_dir / "sentences.parquet"
     columns = ["sentence_uid", "article_uid", "pmid", "pmcid", "section", "sentence_text", "source_release", "parser_hash"]
-    for row in iter_table_rows(sentence_path, columns=columns, batch_size=args.batch_size):
-        if args.max_sentences > 0 and sentence_count >= args.max_sentences:
-            break
-        sentence_count += 1
-        row["_article_license_id"] = article_license_by_uid.get(str(row.get("article_uid") or ""), "local_articles:articles_collect")
+
+    def process_sentence(row: dict[str, Any], relevance_score: float | None) -> None:
+        nonlocal mention_batch, sentence_with_mentions
         mentions = match_mentions(row, lexicon, phash, cfg_hash, args.max_mentions_per_sentence)
         if mentions:
             sentence_with_mentions += 1
@@ -1537,11 +1714,45 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
             mention_writer.write(mention_batch)
             mention_batch = []
         extracted = extract_relations(str(row.get("sentence_text") or ""), mentions, args.min_relation_prob)
+        if relevance_score is not None:
+            extracted = [weighted for relation in extracted if (weighted := apply_relevance_weight(relation, relevance_score, args.min_relation_prob)) is not None]
         for relation in extracted:
             relation_counter[relation["predicate"]] += 1
         relation_rows.extend(extracted)
+
+    def process_relevance_rows(rows: list[dict[str, Any]]) -> None:
+        nonlocal relevance_batch, relevance_scored_count
+        if not rows:
+            return
+        assert relevance_scorer is not None
+        for row, (rel_row, relevance_score) in zip(rows, relevance_rows(rows, relevance_scorer, cfg_hash)):
+            relevance_batch.append(rel_row)
+            relevance_scored_count += 1
+            relevance_decision_counter[rel_row["decision"]] += 1
+            if len(relevance_batch) >= args.batch_size:
+                relevance_writer.write(relevance_batch)
+                relevance_batch = []
+            process_sentence(row, relevance_score)
+
+    pending_relevance_rows: list[dict[str, Any]] = []
+    for row in iter_table_rows(sentence_path, columns=columns, batch_size=args.batch_size):
+        if args.max_sentences > 0 and sentence_count >= args.max_sentences:
+            break
+        sentence_count += 1
+        row["_article_license_id"] = article_license_by_uid.get(str(row.get("article_uid") or ""), "local_articles:articles_collect")
+        if relevance_scorer is None:
+            process_sentence(row, None)
+            continue
+        pending_relevance_rows.append(row)
+        if len(pending_relevance_rows) >= args.relevance_batch_size:
+            process_relevance_rows(pending_relevance_rows)
+            pending_relevance_rows = []
+    if relevance_scorer is not None:
+        process_relevance_rows(pending_relevance_rows)
     mention_writer.write(mention_batch)
     mention_writer.close()
+    relevance_writer.write(relevance_batch)
+    relevance_writer.close()
 
     relation_rows.sort(key=lambda row: row["relation_uid"])
     write_parquet(output_dir / "relation_candidates.parquet", relation_rows, RELATION_SCHEMA)
@@ -1560,6 +1771,8 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
         "relation_candidate_count": len(relation_rows),
         "evidence_candidate_count": len(relation_rows),
         "edge_support_count": len(support_rows),
+        "relevance_scored_sentence_count": relevance_scored_count,
+        "relevance_count_by_decision": dict(sorted(relevance_decision_counter.items())),
         "supported_existing_edge_count": support_counter["confirm"] + support_counter["support_direction"],
         "novel_candidate_count": support_counter["novel_candidate"],
         "conflict_candidate_count": support_counter["conflict_candidate"],
@@ -1586,6 +1799,7 @@ def build_evidence(args: argparse.Namespace) -> dict[str, Any]:
         "precision_filters": finalize_precision_stats(precision_stats, precision_filters, precision_config_path, precision_config_hash),
         "tables": [
             {"table": "sentence_mentions", "path": str(output_dir / "sentence_mentions.parquet"), "rows": mention_writer.rows},
+            {"table": "sentence_relevance", "path": str(output_dir / "sentence_relevance.parquet"), "rows": relevance_writer.rows},
             {"table": "relation_candidates", "path": str(output_dir / "relation_candidates.parquet"), "rows": len(relation_rows)},
             {"table": "literature_edge_support", "path": str(output_dir / "literature_edge_support.parquet"), "rows": len(support_rows)},
         ],
@@ -1610,7 +1824,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--min-support-prob", type=float, default=DEFAULT_MIN_SUPPORT_PROB)
     parser.add_argument("--precision-filter-config", default=DEFAULT_PRECISION_FILTER_CONFIG)
     parser.add_argument("--no-graph-entity-limit", action="store_true", help="Allow all canonical entities into the mention lexicon.")
-    return parser.parse_args(argv)
+    parser.add_argument("--relevance-mode", choices=["none", "pubmedbert"], default="none", help="Optional sentence relevance scorer for filtering/reranking.")
+    parser.add_argument("--relevance-model", default=DEFAULT_RELEVANCE_MODEL, help="Transformer model name used when --relevance-mode pubmedbert.")
+    parser.add_argument("--relevance-batch-size", type=int, default=DEFAULT_RELEVANCE_BATCH_SIZE, help="Sentence batch size for PubMedBERT CPU/GPU inference.")
+    args = parser.parse_args(argv)
+    if args.relevance_batch_size < 1:
+        parser.error("--relevance-batch-size must be >= 1")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:

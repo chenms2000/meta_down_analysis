@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 try:
     import pyarrow as pa
@@ -239,6 +240,7 @@ class LiteratureEvidenceBuilderTests(unittest.TestCase):
 
             self.assertEqual(manifest["metrics"]["sentence_count_scanned"], 4)
             self.assertGreaterEqual(manifest["metrics"]["sentence_mention_count"], 5)
+            self.assertEqual(manifest["metrics"]["relevance_scored_sentence_count"], 0)
             self.assertGreaterEqual(manifest["metrics"]["evidence_candidate_count"], 3)
             self.assertGreaterEqual(manifest["metrics"]["supported_existing_edge_count"], 1)
             self.assertGreaterEqual(manifest["metrics"]["novel_candidate_count"], 1)
@@ -252,6 +254,8 @@ class LiteratureEvidenceBuilderTests(unittest.TestCase):
             self.assertIn("gene_regulates_metabolic_process", predicates)
             mentions = pq.read_table(evidence_dir / "sentence_mentions.parquet").to_pylist()
             self.assertNotIn("protein kinase", {row["normalized_surface"] for row in mentions})
+            relevance = pq.read_table(evidence_dir / "sentence_relevance.parquet").to_pylist()
+            self.assertEqual(relevance, [])
 
             support = pq.read_table(evidence_dir / "literature_edge_support.parquet").to_pylist()
             target_support = [
@@ -553,6 +557,31 @@ class LiteratureEvidenceBuilderTests(unittest.TestCase):
                 "name",
             )
         )
+
+    def test_relevance_mode_dependency_error_is_explicit_and_opt_in(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            release = self.make_normalized_store(root)
+            args = builder.parse_args(["--workspace", str(root), "--release-id", release])
+            builder.build_evidence(args)
+            pubmedbert_args = builder.parse_args(["--workspace", str(root), "--release-id", release, "--relevance-mode", "pubmedbert"])
+            with mock.patch.object(builder, "PubMedBertRelevanceScorer", side_effect=RuntimeError("missing torch")):
+                with self.assertRaisesRegex(RuntimeError, "missing torch"):
+                    builder.build_evidence(pubmedbert_args)
+
+    def test_relevance_weight_only_downweights_existing_relation_probability(self):
+        row = {
+            "relation_uid": "rel_1",
+            "calibrated_prob": 0.8,
+            "score_components_json": builder.stable_json({"formula": "rule"}),
+        }
+        weighted = builder.apply_relevance_weight(row, 0.5, 0.2)
+        self.assertIsNotNone(weighted)
+        assert weighted is not None
+        self.assertAlmostEqual(weighted["calibrated_prob"], 0.6)
+        components = json.loads(weighted["score_components_json"])
+        self.assertEqual(components["relevance_weight"]["formula"], "rule_relation_prob*(0.5+0.5*relevance_score)")
+        self.assertIsNone(builder.apply_relevance_weight(row, 0.0, 0.5))
 
 
 if __name__ == "__main__":

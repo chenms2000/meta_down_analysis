@@ -65,6 +65,7 @@ BRIDGEDB_DIRECT_ANCHOR_CODES = ("Ce", "Ch", "Lm", "Cpc", "Ck", "Kd", "Ik")
 GTF_ATTR_RE = re.compile(r'(\S+) "([^"]*)"')
 SENTENCE_RE = re.compile(r"[^.!?\n]+(?:[.!?]+|$)", re.M)
 INTRO_RE = re.compile(r"\n\s*(?:1[.]?\s+)?Introduction\s*\n", re.I)
+DEFAULT_SCISPACY_MODEL = "en_core_sci_sm"
 ONCOLOGY_DISEASE_RE = re.compile(
     r"\b("
     r"cancer|tumou?r|neoplasm|neoplastic|malignan|carcinoma|sarcoma|"
@@ -825,7 +826,30 @@ def arrow_schema(name: str):
                 ("start_offset", pa.int64()),
                 ("end_offset", pa.int64()),
                 ("language", pa.string()),
+                ("segmenter", pa.string()),
+                ("parser_model", pa.string()),
                 ("source_release", pa.string()),
+                ("parser_hash", pa.string()),
+            ]
+        ),
+        "sentence_entity_candidates": pa.schema(
+            [
+                ("candidate_uid", pa.string()),
+                ("sentence_uid", pa.string()),
+                ("article_uid", pa.string()),
+                ("pmid", pa.string()),
+                ("pmcid", pa.string()),
+                ("section", pa.string()),
+                ("mention_text", pa.string()),
+                ("normalized_surface", pa.string()),
+                ("start_offset", pa.int64()),
+                ("end_offset", pa.int64()),
+                ("scispacy_label", pa.string()),
+                ("candidate_source", pa.string()),
+                ("parser_model", pa.string()),
+                ("confidence_proxy", pa.float64()),
+                ("source_release", pa.string()),
+                ("license_id", pa.string()),
                 ("parser_hash", pa.string()),
             ]
         ),
@@ -1025,7 +1049,8 @@ def load_manifest(workspace: Path, manifest_dir: Path, release_id: str | None) -
 
 
 def load_catalog(workspace: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    catalog_path = workspace / manifest.get("catalog", "config/source_catalog.toml")
+    catalog_ref = str(manifest.get("catalog", "config/source_catalog.toml")).replace("\\", "/")
+    catalog_path = workspace / catalog_ref
     with catalog_path.open("rb") as handle:
         import tomllib
 
@@ -3330,8 +3355,42 @@ def parse_article_metadata(text: str, source_path: Path) -> dict[str, str]:
     }
 
 
-def sentence_rows_for_article(meta: dict[str, str], text: str, article_uid: str, scope: str, release_id: str, phash: str) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
+def load_scispacy_pipeline(model_name: str) -> Any:
+    try:
+        import spacy  # type: ignore
+    except ImportError as exc:  # pragma: no cover - depends on optional env.
+        raise RuntimeError("scispaCy parsing requires optional dependency 'spacy' and the scispaCy model package.") from exc
+    try:
+        nlp = spacy.load(model_name)
+    except Exception as exc:  # pragma: no cover - depends on optional env.
+        raise RuntimeError(f"Unable to load scispaCy model '{model_name}'. Install scispaCy and the model before using --sentence-parser scispacy.") from exc
+    if "parser" not in nlp.pipe_names and "senter" not in nlp.pipe_names and "sentencizer" not in nlp.pipe_names:
+        nlp.add_pipe("sentencizer")
+    return nlp
+
+
+def scispacy_sentence_spans(content: str, nlp: Any) -> list[tuple[int, int, str]]:
+    doc = nlp(content)
+    spans: list[tuple[int, int, str]] = []
+    for sent in doc.sents:
+        sentence = re.sub(r"\s+", " ", sent.text).strip()
+        if len(sentence) < 8:
+            continue
+        spans.append((int(sent.start_char), int(sent.end_char), sentence))
+    return spans
+
+
+def rule_sentence_spans(content: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    for match in SENTENCE_RE.finditer(content):
+        sentence = re.sub(r"\s+", " ", match.group(0)).strip()
+        if len(sentence) < 8:
+            continue
+        spans.append((match.start(), match.end(), sentence))
+    return spans
+
+
+def section_spans(meta: dict[str, str], text: str, scope: str) -> list[tuple[str, str]]:
     sections: list[tuple[str, str]] = []
     if meta.get("title"):
         sections.append(("title", meta["title"]))
@@ -3341,46 +3400,206 @@ def sentence_rows_for_article(meta: dict[str, str], text: str, article_uid: str,
         intro = INTRO_RE.search(text)
         body = text[intro.start() :] if intro else text
         sections.append(("full_text", body))
-    for section, content in sections:
-        cursor = 0
-        for match in SENTENCE_RE.finditer(content):
-            sentence = re.sub(r"\s+", " ", match.group(0)).strip()
-            if len(sentence) < 8:
-                continue
-            offset = text.find(sentence[:80], cursor)
-            if offset < 0:
-                offset = match.start()
-            end = offset + len(sentence)
-            cursor = max(cursor, end)
-            text_hash = hashlib.sha256(sentence.encode("utf-8")).hexdigest()
-            rows.append(
-                {
-                    "sentence_uid": stable_uid("sent", article_uid, section, offset, text_hash[:16]),
-                    "article_uid": article_uid,
-                    "pmid": meta.get("pmid", ""),
-                    "pmcid": meta.get("pmcid", ""),
-                    "section": section,
-                    "sentence_text": sentence,
-                    "text_hash": text_hash,
-                    "start_offset": offset,
-                    "end_offset": end,
-                    "language": "en",
-                    "source_release": release_id,
-                    "parser_hash": phash,
-                }
-            )
+    return sections
+
+
+def sentence_rows_from_spans(
+    meta: dict[str, str],
+    text: str,
+    article_uid: str,
+    release_id: str,
+    phash: str,
+    section: str,
+    content: str,
+    spans: list[tuple[int, int, str]],
+    segmenter: str,
+    parser_model: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    cursor = 0
+    for start, _end, sentence in spans:
+        offset = text.find(sentence[:80], cursor)
+        if offset < 0:
+            content_offset = text.find(content[:80])
+            offset = (content_offset if content_offset >= 0 else 0) + start
+        end_offset = offset + len(sentence)
+        cursor = max(cursor, end_offset)
+        text_hash = hashlib.sha256(sentence.encode("utf-8")).hexdigest()
+        rows.append(
+            {
+                "sentence_uid": stable_uid("sent", article_uid, section, offset, text_hash[:16]),
+                "article_uid": article_uid,
+                "pmid": meta.get("pmid", ""),
+                "pmcid": meta.get("pmcid", ""),
+                "section": section,
+                "sentence_text": sentence,
+                "text_hash": text_hash,
+                "start_offset": offset,
+                "end_offset": end_offset,
+                "language": "en",
+                "segmenter": segmenter,
+                "parser_model": parser_model,
+                "source_release": release_id,
+                "parser_hash": phash,
+            }
+        )
     return rows
 
 
-def build_articles(ctx: BuildContext, articles_dir: Path, max_articles: int, sentence_scope: str) -> None:
+def scispacy_candidate_rows(
+    meta: dict[str, str],
+    article_uid: str,
+    release_id: str,
+    phash: str,
+    section: str,
+    content: str,
+    sentence_rows: list[dict[str, Any]],
+    nlp: Any,
+    parser_model: str,
+) -> list[dict[str, Any]]:
+    if not sentence_rows:
+        return []
+    doc = nlp(content)
+    candidates: list[dict[str, Any]] = []
+    used_offsets: set[tuple[str, int, int, str]] = set()
+    for ent in doc.ents:
+        mention = re.sub(r"\s+", " ", ent.text).strip()
+        if len(mention) < 2:
+            continue
+        sent_text = re.sub(r"\s+", " ", getattr(ent, "sent", ent).text).strip()
+        matched = sentence_entity_offset(sentence_rows, mention, sent_text)
+        if matched is None:
+            continue
+        matched_row, start_offset, end_offset = matched
+        sentence_uid = str(matched_row["sentence_uid"])
+        dedupe_key = (sentence_uid, start_offset, end_offset, str(ent.label_ or ""))
+        if dedupe_key in used_offsets:
+            continue
+        used_offsets.add(dedupe_key)
+        candidates.append(
+            {
+                "candidate_uid": stable_uid("entcand", sentence_uid, mention, start_offset, end_offset, ent.label_),
+                "sentence_uid": sentence_uid,
+                "article_uid": article_uid,
+                "pmid": meta.get("pmid", ""),
+                "pmcid": meta.get("pmcid", ""),
+                "section": section,
+                "mention_text": mention,
+                "normalized_surface": re.sub(r"\s+", " ", mention).strip().casefold(),
+                "start_offset": start_offset,
+                "end_offset": end_offset,
+                "scispacy_label": str(ent.label_ or ""),
+                "candidate_source": "scispacy",
+                "parser_model": parser_model,
+                "confidence_proxy": 0.5,
+                "source_release": release_id,
+                "license_id": "local_articles:articles_collect",
+                "parser_hash": phash,
+            }
+        )
+    return candidates
+
+
+def sentence_entity_offset(sentence_rows: list[dict[str, Any]], mention: str, preferred_sentence: str) -> tuple[dict[str, Any], int, int] | None:
+    preferred_norm = re.sub(r"\s+", " ", preferred_sentence).strip()
+    for row in sentence_rows:
+        sent_start = int(row["start_offset"])
+        sent_end = int(row["end_offset"])
+        sentence_text = str(row.get("sentence_text") or "")
+        if preferred_norm and sentence_text != preferred_norm:
+            continue
+        match = re.search(re.escape(mention), sentence_text)
+        if match:
+            return row, sent_start + match.start(), min(sent_start + match.end(), sent_end)
+    for row in sentence_rows:
+        sent_start = int(row["start_offset"])
+        sent_end = int(row["end_offset"])
+        sentence_text = str(row.get("sentence_text") or "")
+        match = re.search(re.escape(mention), sentence_text)
+        if match:
+            return row, sent_start + match.start(), min(sent_start + match.end(), sent_end)
+    return None
+
+
+def sentence_and_candidate_rows_for_article(
+    meta: dict[str, str],
+    text: str,
+    article_uid: str,
+    scope: str,
+    release_id: str,
+    phash: str,
+    sentence_parser: str,
+    scispacy_model: str,
+    nlp: Any | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    sentence_rows: list[dict[str, Any]] = []
+    candidate_rows: list[dict[str, Any]] = []
+    fallback_count = 0
+    for section, content in section_spans(meta, text, scope):
+        segmenter = "rules"
+        parser_model = "regex"
+        spans = rule_sentence_spans(content)
+        use_scispacy = sentence_parser in {"scispacy", "hybrid"} and nlp is not None
+        if use_scispacy:
+            try:
+                scispacy_spans = scispacy_sentence_spans(content, nlp)
+            except Exception:
+                if sentence_parser == "scispacy":
+                    raise
+                fallback_count += 1
+                scispacy_spans = []
+            if scispacy_spans:
+                spans = scispacy_spans
+                segmenter = "scispacy"
+                parser_model = scispacy_model
+            elif sentence_parser == "scispacy":
+                spans = []
+                segmenter = "scispacy"
+                parser_model = scispacy_model
+            elif sentence_parser == "hybrid":
+                fallback_count += 1
+        section_sentence_rows = sentence_rows_from_spans(meta, text, article_uid, release_id, phash, section, content, spans, segmenter, parser_model)
+        sentence_rows.extend(section_sentence_rows)
+        if segmenter == "scispacy" and nlp is not None:
+            candidate_rows.extend(scispacy_candidate_rows(meta, article_uid, release_id, phash, section, content, section_sentence_rows, nlp, parser_model))
+    return sentence_rows, candidate_rows, fallback_count
+
+
+def sentence_rows_for_article(meta: dict[str, str], text: str, article_uid: str, scope: str, release_id: str, phash: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for section, content in section_spans(meta, text, scope):
+        rows.extend(sentence_rows_from_spans(meta, text, article_uid, release_id, phash, section, content, rule_sentence_spans(content), "rules", "regex"))
+    return rows
+
+
+def build_articles(
+    ctx: BuildContext,
+    articles_dir: Path,
+    max_articles: int,
+    sentence_scope: str,
+    sentence_parser: str = "rules",
+    scispacy_model: str = DEFAULT_SCISPACY_MODEL,
+) -> None:
     started = time.time()
     article_writer = ctx.writer("articles")
     sentence_writer = ctx.writer("sentences")
+    candidate_writer = ctx.writer("sentence_entity_candidates")
     files = sorted(articles_dir.glob("*.txt"))
     if max_articles > 0:
         files = files[:max_articles]
     article_rows = []
     sentence_rows = []
+    candidate_rows = []
+    scispacy_fallback_count = 0
+    nlp = None
+    if sentence_parser in {"scispacy", "hybrid"}:
+        try:
+            nlp = load_scispacy_pipeline(scispacy_model)
+        except RuntimeError as exc:
+            if sentence_parser == "scispacy":
+                raise
+            scispacy_fallback_count += 1
+            ctx.note("warning", "articles_collect", f"scispaCy unavailable for hybrid sentence parsing; falling back to rules. {exc}")
     for index, path in enumerate(files, start=1):
         raw = path.read_bytes()
         checksum = hashlib.sha256(raw).hexdigest()
@@ -3407,19 +3626,48 @@ def build_articles(ctx: BuildContext, articles_dir: Path, max_articles: int, sen
                 "parser_hash": ctx.parser_hash,
             }
         )
-        sentence_rows.extend(sentence_rows_for_article(meta, text, article_uid, sentence_scope, ctx.release_id, ctx.parser_hash))
+        if sentence_parser == "rules":
+            article_sentence_rows = sentence_rows_for_article(meta, text, article_uid, sentence_scope, ctx.release_id, ctx.parser_hash)
+            article_candidate_rows: list[dict[str, Any]] = []
+            article_fallbacks = 0
+        else:
+            article_sentence_rows, article_candidate_rows, article_fallbacks = sentence_and_candidate_rows_for_article(
+                meta,
+                text,
+                article_uid,
+                sentence_scope,
+                ctx.release_id,
+                ctx.parser_hash,
+                sentence_parser,
+                scispacy_model,
+                nlp,
+            )
+        scispacy_fallback_count += article_fallbacks
+        sentence_rows.extend(article_sentence_rows)
+        candidate_rows.extend(article_candidate_rows)
         if len(article_rows) >= 1000:
             article_writer.write(article_rows)
             article_rows = []
         if len(sentence_rows) >= 25_000:
             sentence_writer.write(sentence_rows)
             sentence_rows = []
+        if len(candidate_rows) >= 25_000:
+            candidate_writer.write(candidate_rows)
+            candidate_rows = []
         if index % 5000 == 0:
             print(f"[articles] parsed {index}/{len(files)}", flush=True)
     article_writer.write(article_rows)
     sentence_writer.write(sentence_rows)
+    candidate_writer.write(candidate_rows)
     ctx.close_writer(article_writer, started)
     ctx.close_writer(sentence_writer, started)
+    ctx.close_writer(candidate_writer, started)
+    if sentence_parser in {"scispacy", "hybrid"}:
+        ctx.note(
+            "info",
+            "articles_collect",
+            f"Sentence parser mode={sentence_parser}; scispacy_model={scispacy_model}; scispacy_fallback_count={scispacy_fallback_count}. Entity candidates are candidate spans only, not canonical facts.",
+        )
     if sentence_scope != "full":
         ctx.note(
             "info",
@@ -3463,6 +3711,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--skip-articles", action="store_true")
     parser.add_argument("--pubchem-enrich", action="store_true", help="Reserved for a cached PubChem CID property index.")
+    parser.add_argument(
+        "--sentence-parser",
+        choices=["rules", "scispacy", "hybrid"],
+        default="rules",
+        help="Sentence parser for local article materialization. hybrid tries scispaCy and falls back to rules.",
+    )
+    parser.add_argument("--scispacy-model", default=DEFAULT_SCISPACY_MODEL, help="spaCy/scispaCy model name for --sentence-parser scispacy|hybrid.")
     return parser.parse_args(argv)
 
 
@@ -3496,9 +3751,23 @@ def main(argv: list[str] | None = None) -> int:
     build_context_axes(ctx)
     build_opentargets(ctx, gene_uid_by_ensembl, disease_uid_by_xref)
     if not args.skip_articles and args.article_sentence_scope != "none":
-        build_articles(ctx, (workspace / args.articles_dir).resolve(), args.max_articles, args.article_sentence_scope)
+        build_articles(
+            ctx,
+            (workspace / args.articles_dir).resolve(),
+            args.max_articles,
+            args.article_sentence_scope,
+            args.sentence_parser,
+            args.scispacy_model,
+        )
     elif not args.skip_articles:
-        build_articles(ctx, (workspace / args.articles_dir).resolve(), args.max_articles, "none")
+        build_articles(
+            ctx,
+            (workspace / args.articles_dir).resolve(),
+            args.max_articles,
+            "none",
+            args.sentence_parser,
+            args.scispacy_model,
+        )
     else:
         ctx.note("info", "articles_collect", "Article parsing skipped by --skip-articles.")
     write_notes_and_manifest(ctx, args)

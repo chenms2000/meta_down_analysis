@@ -29,6 +29,47 @@ raw_lake/European_point/European_trait_annotations.csv
 
 文献证据 overlay 使用本地重建的文献语料。GitHub 仓库只记录检索式、时间范围、筛选条件和重建边界，不分发文献记录、摘要、全文、影响因子表或句级抽取结果。检索策略见 [config/literature_search_strategy.json](config/literature_search_strategy.json)，说明见 [docs/literature_corpus_dependency.md](docs/literature_corpus_dependency.md)。
 
+## 可选云端 NLP 重建
+
+如果本地机器不足以处理全文语料或 Transformer 推理，可以在自己的云端环境运行可选 NLP 重建，再把生成的数据目录下载回本地测试。GitHub 只保存代码、命令和边界说明，不保存训练结果、模型权重、文献语料或任何私有服务器路径。
+
+scispaCy 句子切分和候选实体 span：
+
+```bash
+python scripts/build_normalized_store.py \
+  --release-id mvp_20260513T002254 \
+  --article-sentence-scope full \
+  --sentence-parser hybrid \
+  --scispacy-model en_core_sci_sm
+```
+
+`hybrid` 会优先使用 scispaCy；如果可选依赖或模型不可用，会降级到规则切分并在 manifest notes 中记录。`scispacy` 模式则要求模型必须可用。scispaCy 输出的 `sentence_entity_candidates` 只是候选 span，不会自动成为规范化事实。
+
+BiomedBERT/PubMedBERT 句子相关性重排：
+
+```bash
+python scripts/build_literature_evidence.py \
+  --release-id mvp_20260513T002254 \
+  --relevance-mode pubmedbert \
+  --relevance-model microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext \
+  --relevance-batch-size 16
+```
+
+该模式只对规则抽取出的文献关系进行相关性降权和重排，并写出 `sentence_relevance.parquet`；它不能创建新事实、不能提升弱证据为高置信结论，也不能替代人工复核。
+
+可选 NLP 重建后，本地测试通常需要同步这些生成目录：
+
+```text
+normalized_store/<release_id>/
+literature_evidence/<release_id>/
+```
+
+如果同时跑了学习层排序，再同步自己的：
+
+```text
+learning_runs/<run_id>/
+```
+
 ## 方法学概览
 
 1. **输入识别**：系统先判断输入是普通代谢物表、GCST/trait 表，还是已经计算好的两组差异结果表。差异表只读取标识符、效应量、显著性、方向和分组元数据，不读取原始丰度矩阵。

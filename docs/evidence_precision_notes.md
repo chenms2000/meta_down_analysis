@@ -4,19 +4,19 @@ Release: `mvp_20260513T002254`
 
 Precision status: `passed`
 
-Filter config: `D:\metabo_data_end\config\evidence_precision_filters.json`
+Filter config: `D:\meta_down_analysis\config\evidence_precision_filters.json`
 Filter hash: `5899029494ccb5a7`
 
 ## Metrics Diff
 
 | metric | baseline | current | delta | delta_pct |
 | --- | --- | --- | --- | --- |
-| sentence_mention_count | 898114 | 898114 | 0 | 0.00% |
-| relation_candidate_count | 52277 | 52277 | 0 | 0.00% |
-| edge_support_count | 32555 | 32555 | 0 | 0.00% |
-| supported_existing_edge_count | 5519 | 5519 | 0 | 0.00% |
-| novel_candidate_count | 24281 | 24281 | 0 | 0.00% |
-| conflict_candidate_count | 2525 | 2525 | 0 | 0.00% |
+| sentence_mention_count | 899685 | 899685 | 0 | 0.00% |
+| relation_candidate_count | 54453 | 54453 | 0 | 0.00% |
+| edge_support_count | 33656 | 33656 | 0 | 0.00% |
+| supported_existing_edge_count | 5047 | 5047 | 0 | 0.00% |
+| novel_candidate_count | 22119 | 22119 | 0 | 0.00% |
+| conflict_candidate_count | 3727 | 3727 | 0 | 0.00% |
 
 ## Acceptance Signals
 
@@ -68,21 +68,21 @@ Manifest `precision_filters` captures exact block/downweight hit counts after re
 | downweight | gene | akt | alias | 4266 | 1813 | surface_downweighted, field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | AKT1 |
 | downweight | target | myc | approved_symbol | 3750 | 1093 | surface_downweighted, short_high_frequency_surface | MYC |
 | downweight | gene | cd8 | alias | 3013 | 1253 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | CD8A |
-| downweight | target | tnf | approved_symbol | 2852 | 1330 | surface_downweighted, short_high_frequency_surface | TNF |
-| downweight | metabolite | lactate | synonym | 2849 | 1078 | field_downweighted, high_frequency_alias_or_synonym | (S)-lactate |
+| downweight | target | tnf | approved_symbol | 2851 | 1330 | surface_downweighted, short_high_frequency_surface | TNF |
+| downweight | metabolite | lactate | synonym | 2847 | 1076 | field_downweighted, high_frequency_alias_or_synonym | (S)-lactate |
 | downweight | gene | tnf | symbol | 2786 | 1296 | surface_downweighted, short_high_frequency_surface | TNF |
 | downweight | gene | pd l1 | alias | 2635 | 735 | field_downweighted, high_frequency_alias_or_synonym | CD274 |
-| downweight | metabolite | iron | synonym | 2560 | 835 | field_downweighted, high_frequency_alias_or_synonym | iron atom |
+| downweight | metabolite | iron | synonym | 2559 | 835 | field_downweighted, high_frequency_alias_or_synonym | iron atom |
 | downweight | gene | myc | symbol | 2230 | 636 | surface_downweighted, short_high_frequency_surface | MYC |
 | downweight | metabolite | lead | synonym | 2023 | 1840 | field_downweighted, high_frequency_alias_or_synonym | lead(0) |
 | downweight | gene | pca | alias | 1882 | 412 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | FLVCR1 |
 | downweight | gene | led | alias | 1828 | 1673 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | SMIM10L2A |
-| downweight | gene | atp | alias | 1769 | 1070 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | ATP8A2 |
+| downweight | gene | atp | alias | 1768 | 1070 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | ATP8A2 |
 | downweight | metabolite | oxygen | synonym | 1683 | 1003 | field_downweighted, high_frequency_alias_or_synonym | dioxygen |
 | downweight | gene | her2 | alias | 1633 | 389 | field_downweighted, high_frequency_alias_or_synonym | ERBB2 |
 | downweight | gene | find | alias | 1613 | 1440 | field_downweighted, high_frequency_alias_or_synonym | DCSTAMP |
 | downweight | gene | hif 1 | alias | 1590 | 535 | field_downweighted, high_frequency_alias_or_synonym | SETD2 |
-| downweight | metabolite | light | synonym | 1469 | 1140 | field_downweighted, high_frequency_alias_or_synonym | photon |
+| downweight | metabolite | light | synonym | 1468 | 1139 | field_downweighted, high_frequency_alias_or_synonym | photon |
 | downweight | gene | light | alias | 1441 | 1117 | field_downweighted, high_frequency_alias_or_synonym | TNFSF14 |
 | downweight | gene | yap | alias | 1391 | 296 | field_downweighted, high_frequency_alias_or_synonym, short_high_frequency_surface | YAP1 |
 | downweight | gene | c myc | alias | 1381 | 492 | field_downweighted, high_frequency_alias_or_synonym | MYC |

@@ -3,6 +3,9 @@ param(
     [switch]$SkipArticles,
     [ValidateSet("none", "abstract", "full")]
     [string]$ArticleSentenceScope = "abstract",
+    [ValidateSet("rules", "scispacy", "hybrid")]
+    [string]$SentenceParser = "rules",
+    [string]$ScispacyModel = "en_core_sci_sm",
     [int]$MaxArticles = 0,
     [switch]$PubChemEnrich
 )
@@ -11,7 +14,9 @@ $ErrorActionPreference = "Stop"
 
 $argsList = @(
     ".\scripts\build_normalized_store.py",
-    "--article-sentence-scope", $ArticleSentenceScope
+    "--article-sentence-scope", $ArticleSentenceScope,
+    "--sentence-parser", $SentenceParser,
+    "--scispacy-model", $ScispacyModel
 )
 
 if ($ReleaseId) {

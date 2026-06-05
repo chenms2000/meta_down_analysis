@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "build_normalized_store.py"
@@ -65,6 +66,15 @@ id: part_of
             newer.write_text("{}", encoding="utf-8")
             self.assertEqual(build_normalized_store.latest_release_id(root), "mvp_20260102T000000")
 
+    def test_load_catalog_accepts_windows_style_manifest_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "config"
+            config.mkdir()
+            (config / "source_catalog.toml").write_text('[[sources]]\nid = "test"\n', encoding="utf-8")
+            catalog = build_normalized_store.load_catalog(root, {"catalog": "config\\source_catalog.toml"})
+        self.assertEqual(catalog["sources"][0]["id"], "test")
+
     def test_parse_article_metadata_extracts_core_fields(self):
         text = """
 JOURNAL INFORMATION
@@ -94,6 +104,51 @@ Body text.
         self.assertEqual(meta["pmid"], "456")
         self.assertEqual(meta["title"], "Metabolism in Cancer Cells")
         self.assertIn("abstract sentence", meta["abstract"])
+
+    def test_hybrid_sentence_parser_falls_back_when_scispacy_unavailable(self):
+        if build_normalized_store.pa is None:
+            self.skipTest("pyarrow is required")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            articles = root / "articles_collect"
+            articles.mkdir()
+            (articles / "PMC1.txt").write_text(
+                """
+PMCID: PMC1
+PMID: 1
+Subjects: Article
+
+Cancer metabolism
+
+==============================
+Lactate is elevated in cancer. Glucose was measured by LC-MS.
+
+1. Introduction
+
+Body text.
+""",
+                encoding="utf-8",
+            )
+            ctx = build_normalized_store.BuildContext(
+                workspace=root,
+                raw_root=root / "raw_lake",
+                manifest_dir=root / "manifests",
+                output_root=root / "normalized_store",
+                release_id="mvp_20260101T000000",
+                manifest={},
+                catalog={},
+                parser_hash="parser",
+            )
+            with mock.patch.object(build_normalized_store, "load_scispacy_pipeline", side_effect=RuntimeError("missing scispacy")):
+                build_normalized_store.build_articles(ctx, articles, 500, "abstract", "hybrid", "en_core_sci_sm")
+            notes = " ".join(row["message"] for row in ctx.notes)
+            self.assertIn("falling back to rules", notes)
+            table_names = {row["table"] for row in ctx.table_audit}
+            self.assertIn("sentence_entity_candidates", table_names)
+            sentence_path = ctx.output_dir / "sentences.parquet"
+            rows = build_normalized_store.pq.read_table(sentence_path).to_pylist()
+            self.assertTrue(rows)
+            self.assertTrue(all(row["segmenter"] == "rules" for row in rows))
 
     def test_hmdb_metabolite_payload_extracts_xrefs_and_annotations(self):
         xml = """<hmdb xmlns="http://www.hmdb.ca">
