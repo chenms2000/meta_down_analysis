@@ -7,10 +7,14 @@ This workflow builds two research layers from a frozen release:
 
 It does not mutate canonical graph or normalized release tables.
 
-For cloud-only training runs that must be downloaded back to a local machine,
-see [cloud_learning_result_sync.md](cloud_learning_result_sync.md). Large
-learning outputs should stay in `learning_runs/` and remain outside Git; commit
-the code, commands, and provenance notes instead.
+For cloud-only training, run the same commands on the training server after
+preparing the frozen release inputs there. Large learning outputs should stay
+in `learning_runs/` and remain outside Git; commit the code, commands, and
+provenance notes instead.
+
+Do not publish scripts or defaults that point to a private training server.
+Other users should clone the repository, prepare their own local or cloud data
+workspace, and run the training commands themselves.
 
 ## Run
 

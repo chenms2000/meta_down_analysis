@@ -74,7 +74,7 @@ http://127.0.0.1:8765/flow-test
 - 大输入可用“外部 LLM（分层文字）”：按解析质量、ratio/class/identity、排名、证据和低置信附录分块叙述，逐块 guard 后再汇总
 - 结果可信度与交互浏览：Web 工作台提供可信度阅读卡、可点击证据图谱、JSON/Markdown 导出
 - 研究优先级 overlay：`manual_sources/prediction_overlays/<release_id>/`
-- 云端学习结果下载与复现：`scripts/sync_cloud_learning_results.ps1`、`docs/cloud_learning_result_sync.md`
+- 学习层训练与复现：`docs/learning_pipeline_mvp.md`
 - 发布验证与回归测试：`scripts/run_phase15_validation.py`、`tests/`
 
 > 注意：本系统用于研究解释和验证优先级排序，不构成临床决策系统。歧义匹配不会被强行提升为高置信证据，外部 LLM 也不能创建事实、修改图谱或改写评分。
