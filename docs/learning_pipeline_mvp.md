@@ -7,6 +7,11 @@ This workflow builds two research layers from a frozen release:
 
 It does not mutate canonical graph or normalized release tables.
 
+For cloud-only training runs that must be downloaded back to a local machine,
+see [cloud_learning_result_sync.md](cloud_learning_result_sync.md). Large
+learning outputs should stay in `learning_runs/` and remain outside Git; commit
+the code, commands, and provenance notes instead.
+
 ## Run
 
 ```powershell
