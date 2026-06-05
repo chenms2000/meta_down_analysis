@@ -6,7 +6,8 @@ param(
     [string]$LocalWorkspace = (Resolve-Path ".").Path,
     [string]$LocalResultsRoot = "",
     [switch]$Overwrite,
-    [switch]$KeepArchive
+    [switch]$KeepArchive,
+    [switch]$LegacyScp
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,17 @@ function Require-Command {
 Require-Command ssh
 Require-Command scp
 Require-Command tar
+
+function Invoke-Native {
+    param(
+        [string]$Command,
+        [string[]]$Arguments
+    )
+    & $Command @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $Command $($Arguments -join ' ')"
+    }
+}
 
 if ([string]::IsNullOrWhiteSpace($LocalResultsRoot)) {
     $LocalResultsRoot = Join-Path $LocalWorkspace "learning_runs"
@@ -43,20 +55,26 @@ if ((Test-Path $LocalRunPath) -and -not $Overwrite) {
 New-Item -ItemType Directory -Force -Path $LocalResultsRoot, $LocalTmp, $ManifestDir | Out-Null
 
 Write-Host "Checking remote run: ${Remote}:$RemoteRunPath"
-ssh $Remote "test -d '$RemoteRunPath' && test -f '$RemoteRunPath/reports/priority_ranker_report.json'"
+Invoke-Native ssh @($Remote, "test -d '$RemoteRunPath' && test -f '$RemoteRunPath/reports/priority_ranker_report.json'")
 
 Write-Host "Creating remote archive: $RemoteArchive"
-ssh $Remote "rm -f '$RemoteArchive' && tar -C '$RemoteWorkspace/learning_runs' -czf '$RemoteArchive' '$RunId'"
+Invoke-Native ssh @($Remote, "rm -f '$RemoteArchive' && tar -C '$RemoteWorkspace/learning_runs' -czf '$RemoteArchive' '$RunId'")
 
 Write-Host "Downloading archive to: $LocalArchive"
-scp "${Remote}:$RemoteArchive" "$LocalArchive"
+$ScpArgs = @()
+if ($LegacyScp) {
+    $ScpArgs += "-O"
+}
+$ScpArgs += "${Remote}:$RemoteArchive"
+$ScpArgs += "$LocalArchive"
+Invoke-Native scp $ScpArgs
 
 if ((Test-Path $LocalRunPath) -and $Overwrite) {
     Remove-Item -LiteralPath $LocalRunPath -Recurse -Force
 }
 
 Write-Host "Extracting into: $LocalResultsRoot"
-tar -xzf "$LocalArchive" -C "$LocalResultsRoot"
+Invoke-Native tar @("-xzf", "$LocalArchive", "-C", "$LocalResultsRoot")
 
 $ExpectedFiles = @(
     "rankings\drug_priorities.parquet",
